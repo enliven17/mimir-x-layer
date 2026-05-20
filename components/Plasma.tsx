@@ -84,12 +84,12 @@ vec3 sanitize(vec3 c){
   );
 }
 
-// 4-stop blush palette (matches the page's pv tokens).
+// 4-stop World Cup palette (mint → green, matches the page's pv tokens).
 // Index 0 = page bg (lightest), index 3 = accent (deepest tint).
-const vec3 PAL0 = vec3(0.988, 0.973, 0.973); // #FCF8F8
-const vec3 PAL1 = vec3(0.984, 0.937, 0.937); // #FBEFEF
-const vec3 PAL2 = vec3(0.976, 0.875, 0.875); // #F9DFDF
-const vec3 PAL3 = vec3(0.961, 0.686, 0.686); // #F5AFAF
+const vec3 PAL0 = vec3(0.867, 0.957, 0.906); // #DDF4E7  wc-mint (bg)
+const vec3 PAL1 = vec3(0.710, 0.898, 0.800); // #B5E5CC  light green
+const vec3 PAL2 = vec3(0.561, 0.824, 0.682); // #8FD2AE  mid green
+const vec3 PAL3 = vec3(0.404, 0.753, 0.565); // #67C090  wc-green (accent)
 
 vec3 palette(float t) {
   t = clamp(t, 0.0, 1.0);

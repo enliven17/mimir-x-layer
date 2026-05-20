@@ -16,7 +16,6 @@ import {
 import { ZERO_ADDRESS, shortenAddress } from "@/lib/constants";
 import { mergePendingVS } from "@/lib/pending-vs";
 import PageTransition, { AnimatedItem } from "@/components/PageTransition";
-import { Button } from "@/components/ui";
 import VSCard from "@/components/VSCard";
 import ArenaCard from "@/components/ArenaCard";
 import ArenaProposeCard from "@/components/ArenaProposeCard";
@@ -24,7 +23,7 @@ import SettlementArchiveSection from "@/components/SettlementArchiveSection";
 import Artifact from "@/components/Artifact";
 import LiveStat from "@/components/LiveStat";
 import WorldCupBanner from "@/components/WorldCupBanner";
-import { Ball, FieldLines, RollingBall, TrophyGlow } from "@/components/WorldCupAccents";
+import { Ball, FieldLines } from "@/components/WorldCupAccents";
 import { kineticContainer, kineticLetter } from "@/lib/animations/rituals";
 
 type ParsedStat = {
@@ -674,74 +673,6 @@ export default function HomePage() {
         <SettlementArchiveSection allVS={allVS} loading={loading} />
       </AnimatedItem>
 
-      {/* READY TO WIN CTA — World Cup edition with trophy + rolling ball */}
-      <AnimatedItem>
-        <div className="mt-16 sm:mt-20 mb-12">
-          <div className="group relative w-full overflow-hidden rounded-lg border border-pv-emerald/30 bg-pv-surface/80 px-6 py-10 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] backdrop-blur-xl sm:p-10 md:p-12 lg:p-14">
-            {/* Pitch stripe overlay (top + bottom) */}
-            <div className="wc-flag-stripe absolute inset-x-0 top-0 h-[2px]" aria-hidden />
-            <div className="wc-flag-stripe absolute inset-x-0 bottom-0 h-[2px]" aria-hidden />
-
-            <div
-              className="pointer-events-none absolute inset-y-0 right-0 w-1/2 opacity-[0.16] transition-opacity duration-700 group-hover:opacity-[0.24]"
-              aria-hidden
-            >
-              <div className="h-full w-full bg-gradient-to-l from-wc-gold/40 via-pv-emerald/10 to-transparent" />
-            </div>
-            <div
-              className="pointer-events-none absolute -right-20 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-wc-gold/25 blur-3xl"
-              aria-hidden
-            />
-
-            {/* Rolling ball lane — drifts across the bottom on hover */}
-            <div className="pointer-events-none absolute inset-x-0 bottom-3 h-6 opacity-50 transition-opacity duration-300 group-hover:opacity-90">
-              <RollingBall size={22} />
-            </div>
-
-            <div className="relative z-10 flex flex-col items-start gap-7 text-left sm:gap-8 md:flex-row md:items-center md:justify-between md:gap-10">
-              <div className="flex max-w-xl items-start gap-5">
-                {/* Trophy with golden halo */}
-                <div className="hidden shrink-0 md:block">
-                  <TrophyGlow size={56} />
-                </div>
-
-                <div className="min-w-0">
-                  <div className="mb-4 flex items-center gap-3">
-                    <span className="relative flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-pv-emerald opacity-40" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-pv-emerald" />
-                    </span>
-                    <span className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-pv-muted">
-                      Take the kickoff
-                    </span>
-                  </div>
-
-                  <h2 className="font-display text-[clamp(1.9rem,7vw,3.1rem)] font-bold leading-[0.95] tracking-tight text-pv-text">
-                    LIFT THE <span className="bg-gradient-to-r from-pv-emerald via-wc-gold to-pv-emerald bg-clip-text text-transparent">TROPHY?</span>
-                  </h2>
-                  <p className="mt-4 max-w-[46ch] text-sm leading-relaxed text-pv-muted sm:text-base">
-                    Set the terms, lock your stake, blow the whistle. When the final whistle blows, Mimir settles your World Cup claim on-chain — winner takes the pot.
-                  </p>
-                </div>
-              </div>
-
-              <div className="w-full md:w-auto">
-                <Link href="/vs/create" className="block w-full md:w-auto">
-                  <Button
-                    variant="primary"
-                    className="group/btn w-full md:w-auto px-8 font-display text-xs font-bold uppercase tracking-[0.2em]"
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <Ball size={14} className="transition-transform duration-500 group-hover/btn:rotate-[540deg]" />
-                      Blow the Whistle
-                    </span>
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </AnimatedItem>
 
 
       

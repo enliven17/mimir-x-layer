@@ -68,10 +68,18 @@ export function getContractAddress(): `0x${string}` {
   return addr as `0x${string}`;
 }
 
-// X Layer RPC is permissive on eth_getLogs but we cap to 10k blocks to stay
-// portable with the Arc-era scanners (and most public RPC providers anyway).
-export const XLAYER_LOG_CHUNK = 9_999n;
+// X Layer testnet RPC (both testrpc.xlayer.tech and xlayertestrpc.okx.com)
+// rejects eth_getLogs with "block range greater than 100 max". The chunk size
+// here is (limit - 1) blocks so a single [from, to] window stays within the cap.
+// The previous 9_999n chunk caused every call to fail with -32602, which is
+// why /agents and /stats appeared empty even with on-chain activity.
+export const XLAYER_LOG_CHUNK = 99n;
 export const ARC_LOG_CHUNK = XLAYER_LOG_CHUNK;
+
+// Default fan-out for paginatedGetLogs. With ~100k blocks of history per
+// agent page load (~1000 chunks at chunk=99), sequential requests would take
+// minutes. 25 parallel keeps total latency under ~10s without abusing the RPC.
+const PAGINATED_LOGS_CONCURRENCY = 25;
 
 export function getDeployBlock(): bigint {
   const raw = process.env.NEXT_PUBLIC_DEPLOY_BLOCK;
@@ -94,18 +102,46 @@ export async function paginatedGetLogs(
   toBlock?: bigint,
 ): Promise<any[]> {
   const end = toBlock ?? (await client.getBlockNumber());
-  const all: any[] = [];
+  if (fromBlock > end) return [];
+
+  // Build the [start, stop] window list up-front so we can fan out in parallel.
+  const windows: Array<{ start: bigint; stop: bigint }> = [];
   for (let start = fromBlock; start <= end; ) {
     const stop = start + XLAYER_LOG_CHUNK > end ? end : start + XLAYER_LOG_CHUNK;
-    const logs = await client.getLogs({
-      ...(params as any),
-      fromBlock: start,
-      toBlock: stop,
-    });
-    all.push(...logs);
+    windows.push({ start, stop });
     start = stop + 1n;
   }
-  return all;
+
+  const results: any[][] = new Array(windows.length);
+  let cursor = 0;
+
+  async function worker() {
+    while (true) {
+      const idx = cursor++;
+      if (idx >= windows.length) return;
+      const { start, stop } = windows[idx];
+      try {
+        results[idx] = await client.getLogs({
+          ...(params as any),
+          fromBlock: start,
+          toBlock: stop,
+        });
+      } catch (err) {
+        // Swallow per-chunk failures so a single transient RPC blip doesn't
+        // wipe the entire feed. The chunk is just skipped (treated as empty).
+        console.error(
+          `[paginatedGetLogs] chunk ${start}-${stop} failed:`,
+          (err as Error)?.message ?? err,
+        );
+        results[idx] = [];
+      }
+    }
+  }
+
+  const workerCount = Math.min(PAGINATED_LOGS_CONCURRENCY, windows.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+  return results.flat();
 }
 
 export function getExplorerTxUrl(txHash: string): string {
