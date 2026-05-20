@@ -9,21 +9,32 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // World Cup edition palette
+        //   wc-mint  #DDF4E7 — background
+        //   wc-green #67C090 — primary action / grass
+        //   wc-teal  #26667F — secondary accent / kit
+        //   wc-navy  #124170 — text / deep accent
+        wc: {
+          mint:  "#DDF4E7",
+          green: "#67C090",
+          teal:  "#26667F",
+          navy:  "#124170",
+          gold:  "#E0B23A",
+          pitch: "#3F8F62",
+        },
         pv: {
-          // Soft blush palette
-          bg:       "#FCF8F8",
-          surface:  "#FBEFEF",
-          surface2: "#F9DFDF",
-          border:   "#F5AFAF",
-          text:     "#2A1818",
-          muted:    "#7A5050",
-          // Accents — monochromatic rose family (no green/cyan/fuch).
-          // The legacy token names (cyan/fuch/emerald) stay so existing
-          // utility classes keep working; they all resolve to rose tones now.
-          cyan:     "#D85F5F",
-          fuch:     "#C84747",
-          emerald:  "#D85F5F",
-          gold:     "#B07300",
+          // Legacy token names retained so existing utility classes keep working.
+          // Values are rebound to the World Cup palette.
+          bg:       "#DDF4E7",  // wc-mint
+          surface:  "#EAF8EF",
+          surface2: "#D2EEDD",
+          border:   "#67C090",
+          text:     "#124170",  // wc-navy
+          muted:    "#26667F",  // wc-teal
+          cyan:     "#26667F",  // teal accent
+          fuch:     "#124170",  // deep navy accent
+          emerald:  "#67C090",  // primary green
+          gold:     "#E0B23A",
           danger:   "#B91C1C",
         },
       },
@@ -44,13 +55,14 @@ const config: Config = {
         full:  "9999px",
       },
       boxShadow: {
-        glow:           "0 0 40px rgba(245,175,175,0.32)",
-        "glow-fuch":    "0 0 40px rgba(245,175,175,0.28)",
-        "glow-emerald": "0 0 40px rgba(216, 95, 95,0.18)",
-        "glow-gold":    "0 0 40px rgba(176,115,0,0.12)",
-        "glow-lg":      "0 0 60px rgba(245,175,175,0.36)",
-        "glow-fuch-lg": "0 0 60px rgba(245,175,175,0.32)",
-        "glow-emerald-lg": "0 0 60px rgba(216, 95, 95,0.22)",
+        glow:              "0 0 40px rgba(103,192,144,0.32)",
+        "glow-fuch":       "0 0 40px rgba(18,65,112,0.28)",
+        "glow-emerald":    "0 0 40px rgba(103,192,144,0.24)",
+        "glow-gold":       "0 0 40px rgba(224,178,58,0.32)",
+        "glow-lg":         "0 0 60px rgba(103,192,144,0.4)",
+        "glow-fuch-lg":    "0 0 60px rgba(18,65,112,0.36)",
+        "glow-emerald-lg": "0 0 60px rgba(103,192,144,0.32)",
+        "glow-trophy":     "0 0 60px rgba(224,178,58,0.55), 0 0 24px rgba(224,178,58,0.4)",
       },
       keyframes: {
         fadeUp: {
@@ -71,8 +83,8 @@ const config: Config = {
           "100%": { opacity: "0", transform: "translateY(100vh) rotate(600deg)" },
         },
         pulseGlow: {
-          "0%, 100%": { boxShadow: "0 0 20px rgba(78,222,163,0.06)" },
-          "50%":      { boxShadow: "0 0 50px rgba(78,222,163,0.18)" },
+          "0%, 100%": { boxShadow: "0 0 20px rgba(103,192,144,0.1)" },
+          "50%":      { boxShadow: "0 0 50px rgba(103,192,144,0.28)" },
         },
         blink: {
           "0%, 100%": { opacity: "1" },
@@ -115,6 +127,39 @@ const config: Config = {
           "0%":   { opacity: "0", transform: "translateY(-8px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        /* ── World Cup edition ── */
+        ballRoll: {
+          "0%":   { transform: "translateX(-120%) rotate(0deg)" },
+          "100%": { transform: "translateX(120%) rotate(720deg)" },
+        },
+        ballSpin: {
+          "0%":   { transform: "rotate(0deg)" },
+          "100%": { transform: "rotate(360deg)" },
+        },
+        marquee: {
+          "0%":   { transform: "translateX(0)" },
+          "100%": { transform: "translateX(-50%)" },
+        },
+        flagWave: {
+          "0%, 100%": { transform: "translateY(0) skewX(0deg)" },
+          "50%":      { transform: "translateY(-2px) skewX(-1.5deg)" },
+        },
+        pitchScroll: {
+          "0%":   { backgroundPosition: "0% 0%" },
+          "100%": { backgroundPosition: "0% 200%" },
+        },
+        trophyShine: {
+          "0%, 100%": { filter: "drop-shadow(0 0 10px rgba(224,178,58,0.4))", transform: "translateY(0) rotate(-2deg)" },
+          "50%":      { filter: "drop-shadow(0 0 28px rgba(224,178,58,0.95))", transform: "translateY(-3px) rotate(2deg)" },
+        },
+        sweepShine: {
+          "0%":   { transform: "translateX(-150%) skewX(-20deg)" },
+          "100%": { transform: "translateX(250%) skewX(-20deg)" },
+        },
+        kickoffPing: {
+          "0%":   { transform: "scale(1)",   opacity: "0.6" },
+          "100%": { transform: "scale(2.4)", opacity: "0" },
+        },
       },
       animation: {
         "fade-up":    "fadeUp 0.5s ease-out both",
@@ -133,6 +178,16 @@ const config: Config = {
         "tension-pulse":  "tensionPulse 2.5s ease-in-out infinite",
         "seal-flash":     "sealFlash 0.55s ease-out both",
         "tick-down":      "tickDown 0.25s ease-out both",
+        /* ── World Cup edition ── */
+        "ball-roll":     "ballRoll 9s linear infinite",
+        "ball-spin":     "ballSpin 3s linear infinite",
+        "marquee":       "marquee 38s linear infinite",
+        "marquee-fast":  "marquee 18s linear infinite",
+        "flag-wave":     "flagWave 4s ease-in-out infinite",
+        "pitch-scroll":  "pitchScroll 22s linear infinite",
+        "trophy-shine":  "trophyShine 2.6s ease-in-out infinite",
+        "sweep-shine":   "sweepShine 2.4s ease-in-out infinite",
+        "kickoff-ping":  "kickoffPing 1.6s ease-out infinite",
       },
     },
   },

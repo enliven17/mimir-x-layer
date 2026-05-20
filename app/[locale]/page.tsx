@@ -23,6 +23,8 @@ import ArenaProposeCard from "@/components/ArenaProposeCard";
 import SettlementArchiveSection from "@/components/SettlementArchiveSection";
 import Artifact from "@/components/Artifact";
 import LiveStat from "@/components/LiveStat";
+import WorldCupBanner from "@/components/WorldCupBanner";
+import { Ball, FieldLines, RollingBall, TrophyGlow } from "@/components/WorldCupAccents";
 import { kineticContainer, kineticLetter } from "@/lib/animations/rituals";
 
 type ParsedStat = {
@@ -267,12 +269,21 @@ export default function HomePage() {
 
   return (
     <PageTransition>
+      {/* World Cup Edition banner (countdown + tricolor) — full-bleed */}
+      <AnimatedItem>
+        <div className="relative left-1/2 mb-4 w-screen -translate-x-1/2">
+          <WorldCupBanner />
+        </div>
+      </AnimatedItem>
+
       {/* Hero — Manifesto with kinetic typography + arena grid */}
       <AnimatedItem>
         <section className="relative mb-6 w-full sm:mb-8">
           {/* Plasma WebGL backdrop — full-viewport-bleed, escapes both <main> and the hero box */}
           <div className="absolute inset-y-0 left-1/2 z-0 h-full w-screen -translate-x-1/2 overflow-hidden">
-            <Plasma color="#F5AFAF" speed={0.9} scale={1} opacity={0.85} mouseInteractive={false} />
+            <Plasma color="#67C090" speed={0.85} scale={1} opacity={0.78} mouseInteractive={false} />
+            {/* Pitch lines + grass parallax layered over the plasma */}
+            <FieldLines />
             <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-pv-bg via-pv-bg/35 to-transparent sm:h-32" />
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-pv-bg via-pv-bg/60 to-transparent sm:h-40" />
           </div>
@@ -280,6 +291,25 @@ export default function HomePage() {
           {/* Text panel — full-viewport hero so scrolling reveals the rest */}
           <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1200px] items-center justify-center px-4 sm:px-6 lg:px-8 pt-[env(safe-area-inset-top,0px)]">
             <div className="w-full max-w-[640px] pt-14 pb-28 sm:py-16 lg:py-20 text-center">
+              {/* World Cup edition badge */}
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.05, duration: 0.4 }}
+                className="mb-6 flex justify-center"
+              >
+                <span className="group inline-flex items-center gap-2.5 rounded-full border border-wc-navy/25 bg-white/55 px-3.5 py-1.5 shadow-[0_8px_24px_-12px_rgba(18,65,112,0.45)] backdrop-blur-md">
+                  <Ball size={14} spin />
+                  <span className="font-display text-[10px] font-bold uppercase tracking-[0.22em] text-wc-navy sm:text-[11px]">
+                    World Cup Edition · 2026
+                  </span>
+                  <span className="hidden h-[14px] w-px bg-wc-navy/20 sm:inline-block" aria-hidden />
+                  <span className="hidden font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-wc-teal sm:inline-block">
+                    Mexico · USA · Canada
+                  </span>
+                </span>
+              </motion.div>
+
               {/* Headline — 3 lines, reduced size, payoff line smaller */}
               <motion.h1
                 className="mb-6 flex flex-col gap-1 text-center font-display font-bold leading-[0.92] tracking-tight text-pv-text"
@@ -308,7 +338,7 @@ export default function HomePage() {
                   </motion.span>
                   <motion.span
                     variants={kineticLetter}
-                    className="inline-block italic text-pv-emerald drop-shadow-[0_0_18px_rgba(216,95,95,0.5)]"
+                    className="inline-block italic text-pv-emerald drop-shadow-[0_0_18px_rgba(103,192,144,0.6)]"
                   >
                     Mimir.
                   </motion.span>
@@ -316,12 +346,21 @@ export default function HomePage() {
               </motion.h1>
 
               <motion.p
-                className="mb-5 mx-auto max-w-[460px] text-[13px] leading-relaxed text-pv-muted/90 sm:text-sm lg:text-[15px] lg:leading-7"
+                className="mb-2 mx-auto max-w-[460px] text-[13px] leading-relaxed text-pv-muted/90 sm:text-sm lg:text-[15px] lg:leading-7"
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5, duration: 0.5 }}
               >
                 {t("emptyHeroSubtitle")}
+              </motion.p>
+
+              <motion.p
+                className="mb-6 mx-auto max-w-[520px] font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-wc-teal/90 sm:text-[12px]"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.54, duration: 0.5 }}
+              >
+                ⚽ Settle every World Cup debate on-chain — group stage to the final whistle.
               </motion.p>
 
               <motion.div
@@ -330,22 +369,23 @@ export default function HomePage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.58, duration: 0.5 }}
               >
-                {/* Secondary CTA — fuchsia neon */}
+                {/* Secondary CTA — navy outline */}
                 <Link
                   href="/explorer"
-                  className="group relative flex items-center justify-center overflow-hidden rounded-lg border border-pv-fuch/30 bg-transparent px-7 py-3.5 font-display text-[13px] font-bold uppercase tracking-[0.14em] text-pv-fuch/80 transition-all duration-300 hover:border-pv-fuch/60 hover:bg-pv-fuch/[0.1] hover:text-pv-fuch hover:shadow-[0_0_28px_-4px_rgba(200,71,71,0.45),inset_0_0_20px_-8px_rgba(200,71,71,0.12)]"
+                  className="group relative flex items-center justify-center overflow-hidden rounded-lg border border-pv-fuch/30 bg-transparent px-7 py-3.5 font-display text-[13px] font-bold uppercase tracking-[0.14em] text-pv-fuch/85 transition-all duration-300 hover:border-pv-fuch/60 hover:bg-pv-fuch/[0.08] hover:text-pv-fuch hover:shadow-[0_0_28px_-4px_rgba(18,65,112,0.45),inset_0_0_20px_-8px_rgba(18,65,112,0.12)]"
                 >
                   <span className="absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-gradient-to-r from-pv-fuch/[0.1] via-transparent to-pv-fuch/[0.05]" />
-                  <span className="relative">{t("heroExploreChallenges")}</span>
+                  <span className="relative">Scout the Arena</span>
                 </Link>
 
-                {/* Primary CTA — cyan neon */}
+                {/* Primary CTA — emerald (WC green) with ball */}
                 <Link
                   href="/vs/create"
-                  className="group relative flex items-center justify-center overflow-hidden rounded-lg border border-pv-emerald/40 bg-pv-emerald/[0.08] px-7 py-3.5 font-display text-[13px] font-bold uppercase tracking-[0.14em] text-pv-emerald transition-all duration-300 hover:border-pv-emerald/70 hover:bg-pv-emerald/[0.15] hover:text-white hover:shadow-[0_0_28px_-4px_rgba(216,95,95,0.5),inset_0_0_20px_-8px_rgba(216,95,95,0.15)]"
+                  className="group relative flex items-center justify-center gap-2 overflow-hidden rounded-lg border border-pv-emerald/55 bg-pv-emerald/[0.14] px-7 py-3.5 font-display text-[13px] font-bold uppercase tracking-[0.14em] text-wc-navy transition-all duration-300 hover:-translate-y-px hover:border-pv-emerald hover:bg-pv-emerald hover:text-white hover:shadow-[0_0_28px_-4px_rgba(103,192,144,0.6),inset_0_0_20px_-8px_rgba(103,192,144,0.2)]"
                 >
-                  <span className="absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-gradient-to-r from-pv-emerald/[0.12] via-transparent to-pv-emerald/[0.06]" />
-                  <span className="relative">{t("heroChallengeSomeone")}</span>
+                  <span className="absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-gradient-to-r from-pv-emerald/[0.18] via-transparent to-pv-emerald/[0.08]" />
+                  <Ball size={16} className="relative transition-transform duration-500 group-hover:rotate-[360deg]" />
+                  <span className="relative">Kick Off a Challenge</span>
                 </Link>
               </motion.div>
             </div>
@@ -353,54 +393,64 @@ export default function HomePage() {
         </section>
       </AnimatedItem>
 
-      {/* Differentiator — stats strip (total / resolved / USDC staked); mismo patrón que THE PROTOCOL / LIVE ARENA */}
+      {/* Differentiator — stats strip with World Cup terminology */}
       <AnimatedItem>
         <div className="mb-12">
-          <div className="mb-10 flex items-center gap-4 sm:gap-6">
+          <div className="mb-3 flex items-center gap-4 sm:gap-6">
             <h2 className="font-display text-2xl font-bold uppercase tracking-tighter text-pv-text sm:text-3xl md:text-4xl">
-              {t("statsSectionTitle")}
+              The Scoreboard
             </h2>
             <div className="h-px flex-1 bg-black/[0.12]" aria-hidden />
+            <span className="hidden font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-wc-teal sm:inline-block">
+              Live · 90&apos; + Extra Time
+            </span>
           </div>
+          <p className="mb-8 font-mono text-[11px] uppercase tracking-[0.18em] text-pv-muted/85 sm:text-[12px]">
+            From the kickoff whistle to the final settlement — every claim, on-chain.
+          </p>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
-            <div className="p-5 sm:p-6 text-center border border-black/[0.06] rounded-xl bg-pv-surface/30">
+            <div className="relative overflow-hidden p-5 sm:p-6 text-center border border-pv-emerald/20 rounded-xl bg-pv-surface/40">
+              <span className="pointer-events-none absolute -right-3 -top-3 text-3xl opacity-[0.08]" aria-hidden>⚽</span>
               <LiveStat
                 value={allVS.length}
-                label={t("totalClaims")}
+                label="Match Predictions"
                 labelPosition="below"
                 size="lg"
                 color="emerald"
-                  labelClassName="text-[12px]"
+                labelClassName="text-[12px]"
                 className="items-center"
               />
             </div>
-            <div className="p-5 sm:p-6 text-center border border-black/[0.06] rounded-xl bg-pv-surface/30">
+            <div className="relative overflow-hidden p-5 sm:p-6 text-center border border-pv-cyan/20 rounded-xl bg-pv-surface/40">
+              <span className="pointer-events-none absolute -right-3 -top-3 text-3xl opacity-[0.08]" aria-hidden>📯</span>
               <LiveStat
                 value={resolvedVS.length}
-                label={t("resolvedClaims")}
+                label="Final Whistle Settled"
                 labelPosition="below"
                 size="lg"
                 color="emerald"
-                  labelClassName="text-[12px]"
+                labelClassName="text-[12px]"
                 className="items-center"
               />
             </div>
-            <div className="p-5 sm:p-6 text-center border border-black/[0.06] rounded-xl bg-pv-surface/30">
+            <div className="relative overflow-hidden p-5 sm:p-6 text-center border border-pv-gold/25 rounded-xl bg-pv-surface/40">
+              <span className="pointer-events-none absolute -right-3 -top-3 text-3xl opacity-[0.1]" aria-hidden>🏆</span>
               <LiveStat
                 value={totalGenStaked}
-                label={t("genStaked")}
+                label="Prize Pool Locked"
                 labelPosition="below"
                 size="lg"
                 color="gold"
                 suffix="USDC"
-                  labelClassName="text-[12px]"
+                labelClassName="text-[12px]"
                 className="items-center"
               />
             </div>
           </div>
         </div>
       </AnimatedItem>
+
 
       {/* THE PROTOCOL — layout tipo bento (inspirado en “Market Intelligence” del prototipo) */}
       <AnimatedItem>
@@ -624,48 +674,67 @@ export default function HomePage() {
         <SettlementArchiveSection allVS={allVS} loading={loading} />
       </AnimatedItem>
 
-      {/* READY TO WIN CTA */}
+      {/* READY TO WIN CTA — World Cup edition with trophy + rolling ball */}
       <AnimatedItem>
         <div className="mt-16 sm:mt-20 mb-12">
-          <div className="group relative w-full overflow-hidden rounded-lg border border-black/[0.12] bg-pv-surface/80 px-6 py-10 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] backdrop-blur-xl sm:p-10 md:p-12 lg:p-14">
+          <div className="group relative w-full overflow-hidden rounded-lg border border-pv-emerald/30 bg-pv-surface/80 px-6 py-10 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] backdrop-blur-xl sm:p-10 md:p-12 lg:p-14">
+            {/* Pitch stripe overlay (top + bottom) */}
+            <div className="wc-flag-stripe absolute inset-x-0 top-0 h-[2px]" aria-hidden />
+            <div className="wc-flag-stripe absolute inset-x-0 bottom-0 h-[2px]" aria-hidden />
+
             <div
-              className="pointer-events-none absolute inset-y-0 right-0 w-1/2 opacity-[0.14] transition-opacity duration-700 group-hover:opacity-[0.2]"
+              className="pointer-events-none absolute inset-y-0 right-0 w-1/2 opacity-[0.16] transition-opacity duration-700 group-hover:opacity-[0.24]"
               aria-hidden
             >
-              <div className="h-full w-full bg-gradient-to-l from-pv-emerald/40 via-pv-emerald/10 to-transparent" />
+              <div className="h-full w-full bg-gradient-to-l from-wc-gold/40 via-pv-emerald/10 to-transparent" />
             </div>
             <div
-              className="pointer-events-none absolute -right-20 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-pv-emerald/20 blur-3xl"
+              className="pointer-events-none absolute -right-20 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-wc-gold/25 blur-3xl"
               aria-hidden
             />
 
-            <div className="relative z-10 flex flex-col items-start gap-7 text-left sm:gap-8 md:flex-row md:items-end md:justify-between md:gap-10">
-              <div className="max-w-xl">
-                <div className="mb-4 flex items-center gap-3">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-pv-emerald opacity-40" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-pv-emerald" />
-                  </span>
-                  <span className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-pv-muted">
-                    Launch a challenge
-                  </span>
+            {/* Rolling ball lane — drifts across the bottom on hover */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-3 h-6 opacity-50 transition-opacity duration-300 group-hover:opacity-90">
+              <RollingBall size={22} />
+            </div>
+
+            <div className="relative z-10 flex flex-col items-start gap-7 text-left sm:gap-8 md:flex-row md:items-center md:justify-between md:gap-10">
+              <div className="flex max-w-xl items-start gap-5">
+                {/* Trophy with golden halo */}
+                <div className="hidden shrink-0 md:block">
+                  <TrophyGlow size={56} />
                 </div>
 
-                <h2 className="font-display text-[clamp(1.9rem,7vw,3.1rem)] font-bold leading-[0.95] tracking-tight text-pv-text">
-                  READY TO <span className="text-pv-emerald">WIN?</span>
-                </h2>
-                <p className="mt-4 max-w-[46ch] text-sm leading-relaxed text-pv-muted sm:text-base">
-                  Set the terms, lock your stake, and share the link. When the outcome is provable, Mimir settles it on-chain.
-                </p>
+                <div className="min-w-0">
+                  <div className="mb-4 flex items-center gap-3">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-pv-emerald opacity-40" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-pv-emerald" />
+                    </span>
+                    <span className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-pv-muted">
+                      Take the kickoff
+                    </span>
+                  </div>
+
+                  <h2 className="font-display text-[clamp(1.9rem,7vw,3.1rem)] font-bold leading-[0.95] tracking-tight text-pv-text">
+                    LIFT THE <span className="bg-gradient-to-r from-pv-emerald via-wc-gold to-pv-emerald bg-clip-text text-transparent">TROPHY?</span>
+                  </h2>
+                  <p className="mt-4 max-w-[46ch] text-sm leading-relaxed text-pv-muted sm:text-base">
+                    Set the terms, lock your stake, blow the whistle. When the final whistle blows, Mimir settles your World Cup claim on-chain — winner takes the pot.
+                  </p>
+                </div>
               </div>
 
               <div className="w-full md:w-auto">
                 <Link href="/vs/create" className="block w-full md:w-auto">
                   <Button
                     variant="primary"
-                    className="w-full md:w-auto px-8 font-display text-xs font-bold uppercase tracking-[0.2em]"
+                    className="group/btn w-full md:w-auto px-8 font-display text-xs font-bold uppercase tracking-[0.2em]"
                   >
-                    CREATE A CHALLENGE
+                    <span className="inline-flex items-center gap-2">
+                      <Ball size={14} className="transition-transform duration-500 group-hover/btn:rotate-[540deg]" />
+                      Blow the Whistle
+                    </span>
                   </Button>
                 </Link>
               </div>
