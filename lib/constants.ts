@@ -57,6 +57,39 @@ export function normalizeCategoryId(cat: string): CategoryId {
 }
 
 export const CATEGORY_GUIDANCE: Record<CategoryId, CategoryGuidance> = {
+  match: {
+    sourceExamples: [
+      "espn.com/soccer",
+      "fifa.com",
+      "sofascore.com",
+    ],
+    sourceHint: "Use the official FIFA, ESPN, or SofaScore page for the exact match you want to settle.",
+    settlementTemplate:
+      "Resolve YES if the named team wins the match as posted on the linked source by the deadline. Specify whether extra time / penalties count.",
+    questionHint: "Name both teams, the competition, and the date of the match in the question itself.",
+  },
+  playerprop: {
+    sourceExamples: [
+      "fifa.com/.../players",
+      "espn.com/soccer/stats",
+      "sofascore.com",
+    ],
+    sourceHint: "Use an official tournament statistics page that lists the specific player and the stat being measured.",
+    settlementTemplate:
+      "Resolve YES if the player is officially credited with the named stat (e.g. ≥1 goal) on the linked source by the deadline. Otherwise NO.",
+    questionHint: "Name the player, the stat, the match (or tournament span), and the deadline.",
+  },
+  tournament: {
+    sourceExamples: [
+      "fifa.com/.../standings",
+      "espn.com/soccer",
+      "sofascore.com",
+    ],
+    sourceHint: "Use the official tournament standings, bracket, or knockout-stage page for the exact event.",
+    settlementTemplate:
+      "Resolve YES if the linked source officially shows the named tournament outcome by the deadline. Otherwise NO.",
+    questionHint: "Name the tournament, the team or round in question, and the deadline.",
+  },
   sports: {
     sourceExamples: [
       "espn.com",
@@ -116,6 +149,24 @@ export const CATEGORY_GUIDANCE: Record<CategoryId, CategoryGuidance> = {
 };
 
 export const PREFILLS: Record<string, { q: string; a: string; b: string; u: string }> = {
+  match: {
+    q: "Will Spain win their first group-stage match of the 2026 World Cup?",
+    a: "Yes — Spain wins",
+    b: "No — draw or Spain loses",
+    u: "https://www.espn.com/soccer/competitions/_/id/fifa.world",
+  },
+  playerprop: {
+    q: "Will Mbappé score ≥1 goal in France's first 2026 World Cup match?",
+    a: "Yes — Mbappé scores at least one",
+    b: "No — Mbappé does not score",
+    u: "https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/statistics/players",
+  },
+  tournament: {
+    q: "Will any host nation (USA / Canada / Mexico) miss the Round of 32?",
+    a: "Yes — at least one host is eliminated",
+    b: "No — all three hosts advance",
+    u: "https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/standings",
+  },
   sports: {
     q: "Will Argentina beat Brazil today?",
     a: "Argentina wins",

@@ -925,6 +925,9 @@
     "error": "Connection error"
   },
   "categories": {
+    "match": "Match",
+    "playerprop": "Player Prop",
+    "tournament": "Tournament",
     "sports": "Sports",
     "weather": "Weather",
     "deportes": "Sports",

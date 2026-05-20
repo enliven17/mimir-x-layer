@@ -26,6 +26,38 @@ type ChallengeOpportunityCardProps = {
 };
 
 const CATEGORY_ACCENTS = {
+  // World Cup-specific categories (match the market-creator agent + claimDrafts).
+  match: {
+    accent: "#f97316",
+    dim: "rgba(249,115,22,0.12)",
+    border: "rgba(249,115,22,0.28)",
+  },
+  groupstage: {
+    accent: "#3b82f6",
+    dim: "rgba(59,130,246,0.12)",
+    border: "rgba(59,130,246,0.28)",
+  },
+  knockout: {
+    accent: "#ef4444",
+    dim: "rgba(239,68,68,0.12)",
+    border: "rgba(239,68,68,0.28)",
+  },
+  playerprop: {
+    accent: "#a855f7",
+    dim: "rgba(168,85,247,0.12)",
+    border: "rgba(168,85,247,0.28)",
+  },
+  tournament: {
+    accent: "#eab308",
+    dim: "rgba(234,179,8,0.12)",
+    border: "rgba(234,179,8,0.28)",
+  },
+  topscorer: {
+    accent: "#10b981",
+    dim: "rgba(16,185,129,0.12)",
+    border: "rgba(16,185,129,0.28)",
+  },
+  // Legacy / generic buckets.
   sports: {
     accent: "#4ea8de",
     dim: "rgba(78,168,222,0.12)",
