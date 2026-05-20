@@ -68,7 +68,7 @@ function ArchitectureDiagram() {
         <rect x="490" y="40" width="240" height="120" rx="16" fill={C.surf2} stroke={C.accent} strokeWidth="1.8" />
         <text x="610" y="68" textAnchor="middle" fontSize="11" fontWeight="700" fill={C.accent} letterSpacing="2">X LAYER TESTNET</text>
         <text x="610" y="96" textAnchor="middle" fontSize="14" fontWeight="700" fill={C.text}>Mimir.sol</text>
-        <text x="610" y="118" textAnchor="middle" fontSize="11" fill={C.muted}>native OKB stakes · chain 195</text>
+        <text x="610" y="118" textAnchor="middle" fontSize="11" fill={C.muted}>USDC stakes · OKB gas · chain 1952</text>
         <text x="610" y="138" textAnchor="middle" fontSize="11" fill={C.muted}>sub-second finality, EVM-equiv</text>
       </g>
 
@@ -93,7 +93,7 @@ function ArchitectureDiagram() {
 /* ── 2. Claim lifecycle (horizontal stepper) ─────────────────────────────── */
 function LifecycleDiagram() {
   const steps = [
-    { tag: "01", title: "Create",   note: "Stake side A in OKB" },
+    { tag: "01", title: "Create",   note: "Stake side A in USDC" },
     { tag: "02", title: "Challenge",note: "Side B stakes the other side" },
     { tag: "03", title: "Wait",     note: "Deadline passes" },
     { tag: "04", title: "Read",     note: "Oracle fetches evidence" },
@@ -169,7 +169,7 @@ function AgentLoopDiagram() {
       <g>
         <rect x="680" y="120" width="180" height="120" rx="14" fill={C.surface} stroke={C.border} strokeWidth="1.6" />
         <text x="770" y="146" textAnchor="middle" fontSize="11" fontWeight="700" fill={C.muted} letterSpacing="2">ON-CHAIN</text>
-        <text x="770" y="172" textAnchor="middle" fontSize="14" fontWeight="700" fill={C.text}>OKB payout</text>
+        <text x="770" y="172" textAnchor="middle" fontSize="14" fontWeight="700" fill={C.text}>USDC payout</text>
         <text x="770" y="194" textAnchor="middle" fontSize="11" fill={C.muted}>evidence hash committed</text>
         <text x="770" y="212" textAnchor="middle" fontSize="11" fill={C.muted}>confidence stored</text>
       </g>
@@ -239,10 +239,10 @@ export default function DocsPage() {
         <p className="max-w-2xl text-base leading-relaxed text-pv-text/75 sm:text-lg">
           Mimir is an AI-settled claim market on X Layer Testnet — OKX&apos;s
           EVM-equivalent zkEVM L2 with OKB as the native gas token. Two parties
-          stake OKB on opposite sides of a verifiable question; when the deadline
-          passes, an off-chain AI oracle reads the agreed-upon evidence source,
-          returns a verdict, and the smart contract pays out the winning side
-          atomically. No committees, no manual disputes.
+          stake USDC on opposite sides of a verifiable question; when the
+          deadline passes, an off-chain AI oracle reads the agreed-upon evidence
+          source, returns a verdict, and the smart contract pays out the winning
+          side atomically. No committees, no manual disputes.
         </p>
       </header>
 
@@ -251,7 +251,7 @@ export default function DocsPage() {
         <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.22em] text-pv-muted">Contents</p>
         <div className="grid gap-1 sm:grid-cols-2">
           <TocLink href="#what" label="1. What Mimir is" />
-          <TocLink href="#why-xlayer" label="2. Why OKB on X Layer" />
+          <TocLink href="#why-xlayer" label="2. Why X Layer" />
           <TocLink href="#architecture" label="3. Architecture" />
           <TocLink href="#lifecycle" label="4. The claim lifecycle" />
           <TocLink href="#agents" label="5. The agents" />
@@ -269,7 +269,7 @@ export default function DocsPage() {
           <em>&ldquo;Will Argentina reach the World Cup 2026 final according to FIFA.com?&rdquo;</em>
         </p>
         <p>
-          Anyone creates a claim by staking OKB on one side. Another party (or an
+          Anyone creates a claim by staking USDC on one side. Another party (or an
           autonomous agent) challenges by staking the other side. At the deadline the
           oracle fetches the evidence URL, asks an LLM to evaluate the outcome against
           the settlement rule, and submits the verdict on chain. The contract pays out
@@ -284,17 +284,18 @@ export default function DocsPage() {
         </p>
       </Section>
 
-      <Section id="why-xlayer" eyebrow="02" title="Why OKB on X Layer">
+      <Section id="why-xlayer" eyebrow="02" title="Why X Layer">
         <p>
-          X Layer is OKX&apos;s EVM-equivalent zkEVM L2 (chain id 195) with OKB
-          as the native gas token. That property changes the economics of a
-          stake-and-settle market enough to be worth calling out:
+          X Layer is OKX&apos;s EVM-equivalent zkEVM L2 (chain id 1952 on
+          testnet) with OKB as the native gas token. Stakes are denominated in
+          USDC, a 6-decimal ERC-20, so payouts stay stable regardless of OKB
+          price action. The combination changes the economics of a stake-and-
+          settle market enough to be worth calling out:
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Card title="No ERC-20 approval dance">
-            Stakes use <code className="rounded bg-pv-surface2 px-1.5 py-0.5 text-xs">msg.value</code>.
-            One signature opens or accepts a claim — no separate <code className="rounded bg-pv-surface2 px-1.5 py-0.5 text-xs">approve()</code> tx,
-            no allowance to manage.
+          <Card title="USDC stakes, stable payouts">
+            Stakes never move with OKB price. A 5 USDC challenge is worth 5 USDC
+            at settlement no matter what the gas token did in the meantime.
           </Card>
           <Card title="Predictable, sub-cent fees">
             Gas is denominated in OKB. A settlement tx costs a fraction of a cent
@@ -407,30 +408,41 @@ export default function DocsPage() {
 
       <Section id="xlayer-stack" eyebrow="06" title="The X Layer stack">
         <p>
-          X Layer is OKX&apos;s EVM-equivalent zkEVM L2 (chain id 195). OKB is the
-          native gas and stake currency — 18 decimals, same shape as ETH — so
-          Mimir uses <code className="rounded bg-pv-surface2 px-1.5 py-0.5 text-xs">msg.value</code> stakes
-          and pays out OKB directly with no wrapper contracts and no separate fee
-          token.
+          X Layer is OKX&apos;s EVM-equivalent zkEVM L2 (chain id 1952 on
+          testnet). OKB is the native gas token; stakes are USDC, a 6-decimal
+          ERC-20. The contract pulls USDC via{" "}
+          <code className="rounded bg-pv-surface2 px-1.5 py-0.5 text-xs">transferFrom</code>{" "}
+          after a one-time approval and pays winners directly in USDC, so the
+          unit you stake is the unit you settle in.
         </p>
         <p>
-          The on-ramp is straightforward: pull testnet OKB from the{" "}
+          The on-ramp is straightforward: pull testnet OKB for gas from the{" "}
           <a className="text-pv-emerald underline" href="https://www.okx.com/xlayer/faucet" target="_blank" rel="noreferrer">
             OKX X Layer faucet
           </a>{" "}
-          or withdraw OKB directly from an OKX exchange account to X Layer — no
-          bridge UI, no wrapped tokens, no third-party relayer. Transactions
-          settle in under a second and every receipt is browsable on{" "}
+          (or withdraw OKB directly from an OKX exchange account), then top up
+          test USDC on the same address. Transactions settle in under a second
+          and every receipt is browsable on{" "}
           <a className="text-pv-emerald underline" href="https://www.oklink.com/xlayer-test" target="_blank" rel="noreferrer">
             OKLink
           </a>.
         </p>
-        <Card title="OKB (native gas + stake)">
-          18 decimals, native to X Layer Testnet. Stakes flow via{" "}
-          <code className="rounded bg-pv-surface2 px-1.5 py-0.5 text-xs">msg.value</code>,
-          payouts use plain <code className="rounded bg-pv-surface2 px-1.5 py-0.5 text-xs">.call{`{value: …}`}</code>,
-          and gas is paid in the same unit users see in the UI.
-        </Card>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Card title="OKB (native gas)">
+            18 decimals, native to X Layer Testnet. Pays gas for every
+            interaction — a typical claim create / challenge / resolve costs a
+            fraction of a cent worth of OKB.
+          </Card>
+          <Card title="USDC (stake)">
+            6-decimal ERC-20 at{" "}
+            <code className="rounded bg-pv-surface2 px-1 text-xs">0xcB8B…c79D</code>{" "}
+            on X Layer Testnet. Stakes flow via{" "}
+            <code className="rounded bg-pv-surface2 px-1.5 py-0.5 text-xs">approve</code>{" "}
+            + <code className="rounded bg-pv-surface2 px-1.5 py-0.5 text-xs">transferFrom</code>;
+            payouts use{" "}
+            <code className="rounded bg-pv-surface2 px-1.5 py-0.5 text-xs">transfer</code>.
+          </Card>
+        </div>
       </Section>
 
       <Section id="contract" eyebrow="07" title="Smart contract terms">
@@ -471,14 +483,14 @@ export default function DocsPage() {
           <li>
             <strong className="text-pv-text">Connect your wallet.</strong>{" "}
             The site auto-switches you to X Layer Testnet on connect and adds the
-            chain (id 195) if your wallet doesn&apos;t know it.
+            chain (id 1952) if your wallet doesn&apos;t know it.
           </li>
           <li>
             <strong className="text-pv-text">Either create a claim or challenge one.</strong>{" "}
             Browse the <Link href="/explorer" className="text-pv-emerald underline">explorer</Link>{" "}
             for open markets, or open your own with{" "}
             <Link href="/vs/create" className="text-pv-emerald underline">/vs/create</Link>.
-            Stake at least 2 OKB.
+            Stake at least 1 USDC.
           </li>
           <li>
             <strong className="text-pv-text">Wait.</strong>{" "}

@@ -413,7 +413,7 @@ export default function DashboardPageClient() {
               >
                 <LiveStat
                   value={totalWon}
-                  suffix="OKB"
+                  suffix="USDC"
                   size="lg"
                   color="gold"
                   label={t("totalWon")}

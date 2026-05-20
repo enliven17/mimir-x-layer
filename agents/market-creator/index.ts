@@ -79,10 +79,28 @@ interface ClaimCandidate {
   category:         string;
   marketType:       string;
   settlementRule:   string;
-  deadlineHours:    number;
+  /** Absolute ISO 8601 deadline (e.g. "2026-06-12T22:00:00Z"). */
+  deadlineISO:      string;
   qualityScore:     number;
   sourceType:       string;
 }
+
+// ── World Cup 2026 fixture milestones (static reference) ─────────────────────
+// The LLM needs anchored, real dates to pick deadlines from. These are the
+// tournament's published key dates; matchday dates are approximate windows but
+// match the official FIFA structure.
+const WORLD_CUP_MILESTONES = [
+  { label: "Tournament opening match (Mexico — Estadio Azteca)", date: "2026-06-11" },
+  { label: "Group stage matchday 1 window",                       date: "2026-06-11..2026-06-15" },
+  { label: "Group stage matchday 2 window",                       date: "2026-06-16..2026-06-21" },
+  { label: "Group stage matchday 3 window",                       date: "2026-06-22..2026-06-27" },
+  { label: "Round of 32",                                          date: "2026-06-28..2026-07-03" },
+  { label: "Round of 16",                                          date: "2026-07-04..2026-07-07" },
+  { label: "Quarter-finals",                                       date: "2026-07-09..2026-07-11" },
+  { label: "Semi-finals",                                          date: "2026-07-14..2026-07-15" },
+  { label: "Third-place playoff",                                  date: "2026-07-18" },
+  { label: "Final (MetLife Stadium, New Jersey)",                  date: "2026-07-19" },
+] as const;
 
 // ── Source fetchers ───────────────────────────────────────────────────────────
 //
@@ -146,11 +164,23 @@ async function draftClaimCandidates(sourceData: {
   fixtures: string;
   topScorer: string;
 }): Promise<ClaimCandidate[]> {
-  const now     = new Date();
+  const now      = new Date();
+  const nowIso   = now.toISOString();
+  const tournamentStart = new Date("2026-06-11T16:00:00Z"); // opening match local kickoff
+  const milestones = WORLD_CUP_MILESTONES
+    .map((m) => `  - ${m.date}: ${m.label}`)
+    .join("\n");
+
   const prompt  = `You are Mimir, an AI that creates high-quality FIFA World Cup 2026 prediction market claims for a USDC-staked market on X Layer (OKX zkEVM L2).
+
+## Today's date
+${nowIso}  (the tournament opening match is on 2026-06-11, ${Math.ceil((tournamentStart.getTime() - now.getTime()) / 86_400_000)} days away)
 
 ## Tournament context
 ${sourceData.worldCup}
+
+## Tournament fixture milestones (use these dates — DO NOT invent any)
+${milestones}
 
 ## Upcoming international fixtures (ESPN feed)
 ${sourceData.fixtures}
@@ -160,35 +190,39 @@ ${sourceData.topScorer}
 
 ## Task
 Create ${MAX_CLAIMS_PER_RUN} World Cup-themed prediction market candidates. Each must be:
-- **World Cup relevant**: tournament outcomes, group-stage results, knockout
-  matches, top-scorer race, individual team / player props, or qualifier
-  fixtures involving participating nations. Reject anything unrelated.
+- **World Cup relevant**: tournament outcomes, group-stage standings, knockout
+  matches, top-scorer race, individual team / player props.
 - **Verifiable**: resolvable from a specific public URL (FIFA.com,
-  Wikipedia's tournament article, ESPN soccer scoreboard, SofaScore).
+  Wikipedia's 2026 World Cup article, ESPN soccer scoreboard, SofaScore).
 - **Binary**: a clear YES/NO outcome.
-- **Time-bounded**: deadline between 2 and 72 hours from now (${now.toISOString()}).
-  For long-horizon questions (tournament champion, top scorer), set the
-  deadline 24-72 hours out and frame the question around a tournament-stage
-  milestone that's actually verifiable within that window — e.g. "Will
-  France be top of Group D after their first match (per FIFA.com) by
-  <date>?" instead of "Will France win the World Cup?".
+- **Anchored to the real tournament calendar**: pick a deadline that lands
+  AFTER the event the question is about. Examples:
+    - "Will Spain win their first group-stage match?" → deadline ~2026-06-17T23:59Z
+      (after group-stage matchday 1 window closes).
+    - "Will Mbappé score in France's first match?" → deadline ~2026-06-15T23:59Z.
+    - "Will any host nation be eliminated before the Round of 32?" →
+      deadline ~2026-06-28T00:00Z (right when R32 begins).
+    - "Will the Golden Boot winner be Mbappé?" → deadline ~2026-07-20T00:00Z.
+  Pre-tournament qualifiers / friendlies on ESPN's feed are also fair game —
+  use the actual fixture timestamp from the ESPN block.
+- **deadlineISO must be strictly after today (${nowIso}) AND strictly after the
+  resolvable event itself**. NEVER pick a deadline that's already passed.
 - **Specific**: no vague language like "probably" or "might".
 
-Spread the ${MAX_CLAIMS_PER_RUN} candidates across these angles when possible:
-match-outcome (1X2 framed as binary), group-stage standing, knockout
-progression, top-scorer leader, total goals over/under, individual player
-prop (goals scored, cards), tournament narrative (e.g. host nations advance).
+Spread the ${MAX_CLAIMS_PER_RUN} candidates across these angles: match-outcome,
+group-stage standing, knockout progression, top-scorer race, player prop,
+tournament narrative.
 
 For each candidate, return strict JSON:
 {
-  "question":        "Will [specific thing] happen by [specific date/time]?",
+  "question":        "Will [specific thing] happen by [specific date]?",
   "creatorPosition": "Yes — [brief reason]",
   "counterPosition": "No — [brief reason]",
   "resolutionUrl":   "https://...",
   "category":        "match" | "groupstage" | "knockout" | "playerprop" | "tournament" | "topscorer",
   "marketType":      "binary",
   "settlementRule":  "Resolve YES if [exact, observable condition] at the resolution URL at deadline.",
-  "deadlineHours":   <2-72>,
+  "deadlineISO":     "<ISO 8601 datetime UTC, e.g. 2026-06-17T23:59:00Z>",
   "qualityScore":    <0-100>,
   "sourceType":      "fifa" | "espn" | "wikipedia" | "sofascore"
 }
@@ -199,18 +233,52 @@ Return a JSON array of ${MAX_CLAIMS_PER_RUN} candidates. Output JSON only.`;
   try {
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) throw new Error("No JSON array in response");
-    const candidates = JSON.parse(jsonMatch[0]) as ClaimCandidate[];
-    return candidates.filter((c) => c.qualityScore >= MIN_QUALITY_SCORE);
+    const raw = JSON.parse(jsonMatch[0]) as ClaimCandidate[];
+    return raw.filter(isValidCandidate);
   } catch (err) {
     console.warn("[market-creator] Failed to parse candidates:", err);
     return [];
   }
 }
 
+/**
+ * Reject candidates whose deadline is missing, in the past, or unreasonably
+ * far in the future. Also enforce the LLM's own quality floor.
+ */
+function isValidCandidate(c: ClaimCandidate): boolean {
+  if (c.qualityScore < MIN_QUALITY_SCORE) return false;
+  if (!c.deadlineISO || typeof c.deadlineISO !== "string") {
+    console.warn(`[market-creator] dropped — missing deadlineISO: ${c.question}`);
+    return false;
+  }
+  const deadlineMs = Date.parse(c.deadlineISO);
+  if (!Number.isFinite(deadlineMs)) {
+    console.warn(`[market-creator] dropped — invalid deadlineISO ${c.deadlineISO}: ${c.question}`);
+    return false;
+  }
+  const now = Date.now();
+  // Need ≥ CHALLENGE_LOCK_SECONDS (60s) buffer plus a few minutes for the tx
+  // to land and for someone to actually challenge.
+  if (deadlineMs <= now + 10 * 60 * 1000) {
+    console.warn(
+      `[market-creator] dropped — deadline too soon (${c.deadlineISO}, now ${new Date(now).toISOString()}): ${c.question}`,
+    );
+    return false;
+  }
+  // 120 days out is the cap — anything past that is implausibly far into the
+  // tournament timeline.
+  if (deadlineMs > now + 120 * 86_400_000) {
+    console.warn(`[market-creator] dropped — deadline too far (${c.deadlineISO}): ${c.question}`);
+    return false;
+  }
+  return true;
+}
+
 // ── Create claim on-chain ─────────────────────────────────────────────────────
 
 async function createClaim(candidate: ClaimCandidate): Promise<string | null> {
-  const deadline = BigInt(Math.floor(Date.now() / 1000) + candidate.deadlineHours * 3600);
+  // deadlineISO is validated upstream by isValidCandidate — parsing here is safe.
+  const deadline = BigInt(Math.floor(Date.parse(candidate.deadlineISO) / 1000));
   const stake    = usdcToMicro(CREATOR_STAKE_USDC);
 
   // Need enough USDC for the stake itself + enough OKB to pay gas.

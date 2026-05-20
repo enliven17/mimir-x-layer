@@ -5,6 +5,7 @@ import {
   getDeployBlock,
   paginatedGetLogs,
   microToUsdc,
+  weiToOkb,
   getExplorerAddressUrl,
   getExplorerTxUrl,
 } from "@/lib/arc";
@@ -227,12 +228,12 @@ export default async function AgentsPage() {
               </a>
             </div>
             <p className="mt-1 text-sm text-pv-text/85">
-              Reads expired claims, fetches evidence, asks an LLM, and settles. With auto-challenger on, also stakes OKB on mispriced open claims using Kelly.
+              Reads expired claims, fetches evidence, asks an LLM, and settles. With auto-challenger on, also stakes USDC on mispriced open claims using Kelly.
             </p>
             <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
               <div>
                 <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-pv-emerald/80">Balance</div>
-                <div className="mt-0.5 font-display text-base font-bold tabular-nums text-pv-text">{microToUsdc(agentInfo.oracleBal).toFixed(2)} <span className="text-xs text-pv-muted">OKB</span></div>
+                <div className="mt-0.5 font-display text-base font-bold tabular-nums text-pv-text">{weiToOkb(agentInfo.oracleBal).toFixed(4)} <span className="text-xs text-pv-muted">OKB</span></div>
               </div>
               <div>
                 <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-pv-emerald/80">Settled</div>
@@ -258,7 +259,7 @@ export default async function AgentsPage() {
             <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
               <div>
                 <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-pv-text/60">Balance</div>
-                <div className="mt-0.5 font-display text-base font-bold tabular-nums text-pv-text">{microToUsdc(agentInfo.ownerBal).toFixed(2)} <span className="text-xs text-pv-muted">OKB</span></div>
+                <div className="mt-0.5 font-display text-base font-bold tabular-nums text-pv-text">{weiToOkb(agentInfo.ownerBal).toFixed(4)} <span className="text-xs text-pv-muted">OKB</span></div>
               </div>
               <div>
                 <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-pv-text/60">Markets opened</div>
@@ -297,7 +298,7 @@ export default async function AgentsPage() {
                     <>
                       <ActorTag addr={e.actor} oracle={agentInfo?.oracle} creator={agentInfo?.owner} />
                       <span className="text-[13px] font-bold text-pv-text">staked the contrarian side</span>
-                      <span className="text-[11px] font-mono text-pv-text/85">{microToUsdc(e.stakeWei).toFixed(2)} OKB</span>
+                      <span className="text-[11px] font-mono text-pv-text/85">{microToUsdc(e.stakeWei).toFixed(2)} USDC</span>
                     </>
                   )}
                   {e.kind === "resolved" && (() => {

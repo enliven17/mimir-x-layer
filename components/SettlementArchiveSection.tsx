@@ -95,7 +95,7 @@ export default function SettlementArchiveSection({
               className="font-display text-3xl font-medium tabular-nums tracking-tighter text-pv-text sm:text-4xl"
               style={{ textShadow: "0 0 24px rgba(216,95,95, 0.22)" }}
             >
-              {loading ? "—" : `${totalPool} OKB`}
+              {loading ? "—" : `${totalPool} USDC`}
             </span>
           </div>
           <div>
@@ -183,7 +183,7 @@ export default function SettlementArchiveSection({
                       </span>
                       <span className="font-display text-lg font-medium tabular-nums text-pv-text sm:text-xl">
                         {getVSTotalPot(row.vs)}
-                        <span className="ml-0.5 text-sm font-normal text-pv-muted">OKB</span>
+                        <span className="ml-0.5 text-sm font-normal text-pv-muted">USDC</span>
                       </span>
                     </div>
                     <div className="text-center min-w-[4.5rem]">

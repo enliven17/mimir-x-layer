@@ -353,7 +353,7 @@ export default function HomePage() {
         </section>
       </AnimatedItem>
 
-      {/* Differentiator — stats strip (total / resolved / OKB staked); mismo patrón que THE PROTOCOL / LIVE ARENA */}
+      {/* Differentiator — stats strip (total / resolved / USDC staked); mismo patrón que THE PROTOCOL / LIVE ARENA */}
       <AnimatedItem>
         <div className="mb-12">
           <div className="mb-10 flex items-center gap-4 sm:gap-6">
@@ -393,7 +393,7 @@ export default function HomePage() {
                 labelPosition="below"
                 size="lg"
                 color="gold"
-                suffix="OKB"
+                suffix="USDC"
                   labelClassName="text-[12px]"
                 className="items-center"
               />
@@ -742,7 +742,7 @@ export default function HomePage() {
                       </span>
                     </div>
                     <span className="font-mono text-[12px] font-bold text-pv-gold flex-shrink-0 ml-2">
-                      {payout === null ? `${getVSTotalPot(vs)} OKB` : `+${payout} OKB`}
+                      {payout === null ? `${getVSTotalPot(vs)} USDC` : `+${payout} USDC`}
                     </span>
                   </motion.div>
                 </Link>

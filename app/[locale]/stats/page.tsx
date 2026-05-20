@@ -5,6 +5,7 @@ import {
   getDeployBlock,
   paginatedGetLogs,
   microToUsdc,
+  weiToOkb,
   getExplorerAddressUrl,
   getExplorerTxUrl,
 } from "@/lib/arc";
@@ -199,7 +200,7 @@ export default async function StatsPage() {
   const totalResolved  = settlements.length;
   const openClaims     = claims.filter((c) => c.state === 0 || c.state === 1).length;
 
-  // Total wagered = creator stakes + challenger stakes across all claims, in OKB.
+  // Total wagered = creator stakes + challenger stakes across all claims, in USDC.
   const totalWageredWei = claims.reduce(
     (acc, c) => acc + c.creatorStake + c.totalChallengerStake,
     0n,
@@ -233,7 +234,7 @@ export default async function StatsPage() {
 
       {/* Headline KPIs */}
       <section className="mb-10 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Kpi tone="accent" label="Total wagered" value={`${totalWageredUsdc.toFixed(2)} OKB`} sub="creator + challenger stakes" />
+        <Kpi tone="accent" label="Total wagered" value={`${totalWageredUsdc.toFixed(2)} USDC`} sub="creator + challenger stakes" />
         <Kpi label="Claims resolved" value={totalResolved} sub={`${openClaims} open · ${totalClaims} total`} />
         <Kpi label="Oracle accuracy" value={`${accuracyPct}%`} sub="settlements at ≥ 80% confidence" />
         <Kpi label="Refund rate" value={`${refundPct}%`} sub="draw / unresolvable" />
@@ -263,7 +264,7 @@ export default async function StatsPage() {
               <div>
                 <div className="mb-1 flex items-baseline justify-between">
                   <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-pv-emerald">Oracle</span>
-                  <span className="font-mono tabular-nums text-pv-text">{microToUsdc(agentInfo.oracleBalance).toFixed(4)} OKB</span>
+                  <span className="font-mono tabular-nums text-pv-text">{weiToOkb(agentInfo.oracleBalance).toFixed(4)} OKB</span>
                 </div>
                 <a className="block break-all font-mono text-[10px] text-pv-muted hover:text-pv-emerald" href={getExplorerAddressUrl(agentInfo.oracle)} target="_blank" rel="noreferrer">
                   {agentInfo.oracle}
@@ -272,7 +273,7 @@ export default async function StatsPage() {
               <div>
                 <div className="mb-1 flex items-baseline justify-between">
                   <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-pv-emerald">Market-creator (owner)</span>
-                  <span className="font-mono tabular-nums text-pv-text">{microToUsdc(agentInfo.ownerBalance).toFixed(4)} OKB</span>
+                  <span className="font-mono tabular-nums text-pv-text">{weiToOkb(agentInfo.ownerBalance).toFixed(4)} OKB</span>
                 </div>
                 <a className="block break-all font-mono text-[10px] text-pv-muted hover:text-pv-emerald" href={getExplorerAddressUrl(agentInfo.owner)} target="_blank" rel="noreferrer">
                   {agentInfo.owner}
