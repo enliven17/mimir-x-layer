@@ -3,29 +3,29 @@
 import { Link } from "@/i18n/navigation";
 
 /* ───────────────────────────────────────────────────────────────────────────
- * Inline SVG diagrams — hand-drawn in the project's blush palette so they
+ * Inline SVG diagrams — hand-drawn in the World Cup palette so they
  * inherit the visual language without pulling in Mermaid. Each one is
  * responsive via `viewBox`; tweak only the box/text positions when copy
  * changes.
  *
  * Palette tokens used here mirror tailwind.config.ts > theme.extend.colors.pv:
- *   bg       #FCF8F8
- *   surface  #FBEFEF
- *   surface2 #F9DFDF
- *   border   #F5AFAF
- *   text     #2A1818
- *   muted    #7A5050
- *   accent   #D85F5F   (the "pv-emerald" alias, recoloured to rose)
+ *   bg       #DDF4E7   wc-mint
+ *   surface  #EAF8EF
+ *   surface2 #D2EEDD
+ *   border   #67C090   wc-green
+ *   text     #124170   wc-navy
+ *   muted    #26667F   wc-teal
+ *   accent   #67C090   wc-green
  * ───────────────────────────────────────────────────────────────────────── */
 
 const C = {
-  bg:      "#FCF8F8",
-  surface: "#FBEFEF",
-  surf2:   "#F9DFDF",
-  border:  "#F5AFAF",
-  text:    "#2A1818",
-  muted:   "#7A5050",
-  accent:  "#D85F5F",
+  bg:      "#DDF4E7",
+  surface: "#EAF8EF",
+  surf2:   "#D2EEDD",
+  border:  "#67C090",
+  text:    "#124170",
+  muted:   "#26667F",
+  accent:  "#67C090",
 };
 
 /* ── 1. Architecture diagram ─────────────────────────────────────────────── */
