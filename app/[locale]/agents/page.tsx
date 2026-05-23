@@ -2,15 +2,20 @@ import Link from "next/link";
 import {
   createArcPublicClient,
   getContractAddress,
-  getDeployBlock,
-  paginatedGetLogs,
   microToUsdc,
   weiToOkb,
   getExplorerAddressUrl,
-  getExplorerTxUrl,
 } from "@/lib/arc";
-import { MIMIR_ABI } from "@/lib/mimir-abi";
-import { countPunditPicks, getRecentPunditPicks, type PunditPickRow } from "@/lib/db";
+import { MIMIR_ABI, WINNER_SIDE } from "@/lib/mimir-abi";
+import {
+  countPunditPicks,
+  getRecentPunditPicks,
+  getClaimsCreatedBy,
+  getChallengesBy,
+  getResolvedClaimsFeed,
+  getAgentCounts,
+  type PunditPickRow,
+} from "@/lib/db";
 
 // Rendered on each request (no build-time prerender). The page reads several
 // log ranges from X Layer's public RPC; doing that during Vercel's static
@@ -19,121 +24,103 @@ import { countPunditPicks, getRecentPunditPicks, type PunditPickRow } from "@/li
 export const dynamic = "force-dynamic";
 
 /* ── Data ────────────────────────────────────────────────────────────────── */
+//
+// Source of truth: Neon read-index (`claims`, `challengers`).
+// We deliberately do NOT page through eth_getLogs here — X Layer's public RPC
+// is 5 req/sec and a full pagination from deploy-block to tip is several
+// thousand chunks. The indexer (sync routes / oracle worker) writes to Neon;
+// this page reads from it.
 
 type EventRow =
   | {
-      kind:        "created";
-      claimId:     number;
-      actor:       string;
-      category:    string;
-      txHash:      string;
-      blockNumber: number;
+      kind:      "created";
+      claimId:   number;
+      actor:     string;
+      category:  string;
+      ts:        number;
     }
   | {
-      kind:        "challenged";
-      claimId:     number;
-      actor:       string;
-      stakeWei:    bigint;
-      txHash:      string;
-      blockNumber: number;
+      kind:      "challenged";
+      claimId:   number;
+      actor:     string;
+      stakeWei:  bigint;
+      ts:        number;
     }
   | {
-      kind:        "resolved";
-      claimId:     number;
-      winnerSide:  number;
-      confidence:  number;
-      summary:     string;
-      txHash:      string;
-      blockNumber: number;
+      kind:      "resolved";
+      claimId:   number;
+      winnerSide: string;       // "creator" | "challengers" | "draw" | "unresolvable" | ""
+      confidence: number;
+      summary:    string;
+      ts:         number;
     };
 
-async function fetchEvents() {
-  const client  = createArcPublicClient();
-  const address = getContractAddress();
-  const fromBlock = getDeployBlock();
+async function fetchEventsFromIndex(addresses: {
+  oracle?:  string;
+  creator?: string;
+  pundit?:  string | null;
+}): Promise<EventRow[]> {
   try {
-    const [created, challenged, resolved] = await Promise.all([
-      paginatedGetLogs(client, {
-        address,
-        event: {
-          type: "event",
-          name: "ClaimCreated",
-          inputs: [
-            { name: "id",       type: "uint256", indexed: true },
-            { name: "creator",  type: "address", indexed: true },
-            { name: "category", type: "string",  indexed: false },
-          ],
-        } as any,
-      }, fromBlock),
-      paginatedGetLogs(client, {
-        address,
-        event: {
-          type: "event",
-          name: "ClaimChallenged",
-          inputs: [
-            { name: "id",         type: "uint256", indexed: true },
-            { name: "challenger", type: "address", indexed: true },
-            { name: "stake",      type: "uint256", indexed: false },
-          ],
-        } as any,
-      }, fromBlock),
-      paginatedGetLogs(client, {
-        address,
-        event: {
-          type: "event",
-          name: "ClaimResolved",
-          inputs: [
-            { name: "id",           type: "uint256", indexed: true },
-            { name: "winnerSide",   type: "uint8",   indexed: false },
-            { name: "summary",      type: "string",  indexed: false },
-            { name: "confidence",   type: "uint8",   indexed: false },
-            { name: "evidenceHash", type: "bytes32", indexed: false },
-          ],
-        } as any,
-      }, fromBlock),
-    ]);
+    const [resolved, oracleStakes, punditStakes, creatorMarkets, punditMarkets] =
+      await Promise.all([
+        getResolvedClaimsFeed(40),
+        addresses.oracle ? getChallengesBy(addresses.oracle, 40) : Promise.resolve([]),
+        addresses.pundit ? getChallengesBy(addresses.pundit, 40) : Promise.resolve([]),
+        addresses.creator ? getClaimsCreatedBy(addresses.creator, 40) : Promise.resolve([]),
+        addresses.pundit ? getClaimsCreatedBy(addresses.pundit, 40) : Promise.resolve([]),
+      ]);
 
     const rows: EventRow[] = [
-      ...created.map((log: any) => ({
-        kind:        "created" as const,
-        claimId:     Number(log.args.id ?? 0),
-        actor:       String(log.args.creator ?? "").toLowerCase(),
-        category:    String(log.args.category ?? ""),
-        txHash:      log.transactionHash,
-        blockNumber: Number(log.blockNumber ?? 0),
+      ...resolved.map((c) => ({
+        kind:       "resolved" as const,
+        claimId:    c.id,
+        winnerSide: c.winner_side,
+        confidence: c.confidence,
+        summary:    (c.resolution_summary ?? "").slice(0, 180),
+        ts:         c.updated_at,
       })),
-      ...challenged.map((log: any) => ({
-        kind:        "challenged" as const,
-        claimId:     Number(log.args.id ?? 0),
-        actor:       String(log.args.challenger ?? "").toLowerCase(),
-        stakeWei:    BigInt(log.args.stake ?? 0),
-        txHash:      log.transactionHash,
-        blockNumber: Number(log.blockNumber ?? 0),
+      ...oracleStakes.map((s) => ({
+        kind:     "challenged" as const,
+        claimId:  s.claim_id,
+        actor:    s.address,
+        stakeWei: BigInt(s.stake),
+        ts:       s.updated_at,
       })),
-      ...resolved.map((log: any) => ({
-        kind:        "resolved" as const,
-        claimId:     Number(log.args.id ?? 0),
-        winnerSide:  Number(log.args.winnerSide ?? 0),
-        confidence:  Number(log.args.confidence ?? 0),
-        summary:     String(log.args.summary ?? "").slice(0, 180),
-        txHash:      log.transactionHash,
-        blockNumber: Number(log.blockNumber ?? 0),
+      ...punditStakes.map((s) => ({
+        kind:     "challenged" as const,
+        claimId:  s.claim_id,
+        actor:    s.address,
+        stakeWei: BigInt(s.stake),
+        ts:       s.updated_at,
+      })),
+      ...creatorMarkets.map((c) => ({
+        kind:     "created" as const,
+        claimId:  c.id,
+        actor:    c.creator,
+        category: c.category,
+        ts:       c.created_at || c.updated_at,
+      })),
+      ...punditMarkets.map((c) => ({
+        kind:     "created" as const,
+        claimId:  c.id,
+        actor:    c.creator,
+        category: c.category,
+        ts:       c.created_at || c.updated_at,
       })),
     ];
 
-    rows.sort((a, b) => b.blockNumber - a.blockNumber);
+    rows.sort((a, b) => b.ts - a.ts);
     return rows;
   } catch (err) {
-    console.error("[agents] fetchEvents failed:", err);
-    return [] as EventRow[];
+    console.error("[agents] fetchEventsFromIndex failed:", err);
+    return [];
   }
 }
 
-async function fetchPunditData(): Promise<{
-  address:    string | null;
-  bal:        bigint;
-  picks:      PunditPickRow[];
-  counts:     { total: number; creates: number; challenges: number };
+async function fetchPunditDbData(): Promise<{
+  address: string | null;
+  picks:   PunditPickRow[];
+  counts:  { total: number; creates: number; challenges: number };
 } | null> {
   const address = (process.env.PUNDIT_ADDRESS ?? "").trim().toLowerCase();
   try {
@@ -141,39 +128,38 @@ async function fetchPunditData(): Promise<{
       getRecentPunditPicks(3),
       countPunditPicks(),
     ]);
-    let bal = 0n;
-    if (address) {
-      try {
-        const client = createArcPublicClient();
-        bal = await client.getBalance({ address: address as `0x${string}` });
-      } catch {
-        bal = 0n;
-      }
-    }
-    return { address: address || null, bal, picks, counts };
+    return { address: address || null, picks, counts };
   } catch (err) {
-    console.error("[agents] fetchPunditData failed:", err);
+    console.error("[agents] fetchPunditDbData failed:", err);
     return null;
   }
+}
+
+// X Layer public RPC is 5 req/sec. We need 2 reads (oracle, owner) + up to
+// 3 balance lookups (oracle, creator, pundit). Run them with a tiny gap so
+// we stay well under the bucket — total ~5 requests over ~600ms.
+async function rpcThrottled<T>(fns: Array<() => Promise<T>>, gapMs = 120): Promise<T[]> {
+  const out: T[] = [];
+  for (const fn of fns) {
+    out.push(await fn());
+    if (gapMs > 0) await new Promise((r) => setTimeout(r, gapMs));
+  }
+  return out;
 }
 
 async function fetchAgentAddresses() {
   const client  = createArcPublicClient();
   const address = getContractAddress();
   try {
-    const [oracle, owner, oracleBal, ownerBal] = await Promise.all([
-      client.readContract({ address, abi: MIMIR_ABI, functionName: "oracle" }) as Promise<`0x${string}`>,
-      client.readContract({ address, abi: MIMIR_ABI, functionName: "owner"  }) as Promise<`0x${string}`>,
-      client.readContract({ address, abi: MIMIR_ABI, functionName: "oracle" }) as Promise<`0x${string}`>,
-      client.readContract({ address, abi: MIMIR_ABI, functionName: "owner"  }) as Promise<`0x${string}`>,
-    ]).then(async ([oracleAddr, ownerAddr]) => {
-      const [oBal, cBal] = await Promise.all([
-        client.getBalance({ address: oracleAddr }),
-        client.getBalance({ address: ownerAddr  }),
-      ]);
-      return [oracleAddr, ownerAddr, oBal, cBal] as const;
-    });
-    return { oracle, owner, oracleBal: oracleBal as bigint, ownerBal: ownerBal as bigint };
+    const [oracle, owner] = await rpcThrottled<`0x${string}`>([
+      () => client.readContract({ address, abi: MIMIR_ABI, functionName: "oracle" }) as Promise<`0x${string}`>,
+      () => client.readContract({ address, abi: MIMIR_ABI, functionName: "owner"  }) as Promise<`0x${string}`>,
+    ]);
+    const [oracleBal, ownerBal] = await rpcThrottled<bigint>([
+      () => client.getBalance({ address: oracle }),
+      () => client.getBalance({ address: owner }),
+    ]);
+    return { oracle, owner, oracleBal, ownerBal };
   } catch (err) {
     console.error("[agents] fetchAgentAddresses failed:", err);
     return null;
@@ -187,11 +173,11 @@ function shortAddr(a: string): string {
   return `${a.slice(0, 6)}…${a.slice(-4)}`;
 }
 
-const SIDE_LABEL: Record<number, string> = {
-  1: "creator won",
-  2: "challengers won",
-  3: "draw · refunded",
-  4: "unresolvable · refunded",
+const SIDE_LABEL: Record<string, string> = {
+  creator:      "creator won",
+  challengers:  "challengers won",
+  draw:         "draw · refunded",
+  unresolvable: "unresolvable · refunded",
 };
 
 function ActorTag({
@@ -228,31 +214,38 @@ function tierPill(c: number) {
 /* ── Page ────────────────────────────────────────────────────────────────── */
 
 export default async function AgentsPage() {
-  const [events, agentInfo, pundit] = await Promise.all([
-    fetchEvents(),
-    fetchAgentAddresses(),
-    fetchPunditData(),
+  // 1) RPC: agent addresses + balances (throttled to stay under 5 req/sec).
+  const agentInfo = await fetchAgentAddresses();
+
+  // 2) DB-side: pundit picks + counts + activity feed (Postgres, no RPC).
+  const pundit = await fetchPunditDbData();
+
+  const addresses = {
+    oracle:  agentInfo?.oracle,
+    creator: agentInfo?.owner,
+    pundit:  pundit?.address ?? null,
+  };
+
+  const [events, counts, punditBal] = await Promise.all([
+    fetchEventsFromIndex(addresses),
+    getAgentCounts({
+      oracle:  addresses.oracle,
+      creator: addresses.creator,
+      pundit:  addresses.pundit ?? undefined,
+    }),
+    // One more RPC, but small. Skip if no pundit address.
+    addresses.pundit
+      ? createArcPublicClient()
+          .getBalance({ address: addresses.pundit as `0x${string}` })
+          .catch(() => 0n)
+      : Promise.resolve(0n),
   ]);
 
-  // Agent-specific filters
-  const isOracle    = (a: string) => agentInfo && a.toLowerCase() === agentInfo.oracle.toLowerCase();
-  const isCreator   = (a: string) => agentInfo && a.toLowerCase() === agentInfo.owner.toLowerCase();
-  const isPundit    = (a: string) => pundit?.address && a.toLowerCase() === pundit.address.toLowerCase();
-  const agentEvents = events.filter((e) =>
-    e.kind === "resolved" ||
-    (e.kind === "challenged" && (isOracle(e.actor) || isPundit(e.actor))) ||
-    (e.kind === "created" && (isCreator(e.actor) || isPundit(e.actor))),
-  );
+  const oracleSettlements    = counts.oracleSettlements;
+  const oracleChallenges     = counts.oracleChallenges;
+  const creatorMarketsOpened = counts.creatorMarkets;
 
-  const oracleSettlements   = events.filter((e) => e.kind === "resolved").length;
-  const oracleChallenges    = events.filter((e) => e.kind === "challenged" && isOracle(e.actor)).length;
-  const creatorMarketsOpened = events.filter((e) => e.kind === "created" && isCreator(e.actor)).length;
-  const creatorAvgStake = (() => {
-    const created = events.filter((e) => e.kind === "created" && isCreator(e.actor));
-    if (created.length === 0) return 0;
-    // No stake in ClaimCreated event — leave as 0 or hide
-    return 0;
-  })();
+  const agentEvents = events;
 
   return (
     <main className="mx-auto max-w-[1100px] px-4 py-10 sm:px-6 lg:px-8">
@@ -262,9 +255,9 @@ export default async function AgentsPage() {
           What the AI agents have actually done
         </h1>
         <p className="max-w-2xl text-sm text-pv-muted">
-          Live on-chain event feed for Mimir&apos;s two autonomous agents. Every
-          row is a real transaction signed by an agent-controlled key on
-          X Layer Testnet. Cached for 20 seconds.
+          Activity feed for Mimir&apos;s three autonomous agents. Sourced from
+          the Neon read-index that the oracle worker keeps in sync with
+          X Layer Testnet.
         </p>
       </header>
 
@@ -335,7 +328,7 @@ export default async function AgentsPage() {
               <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
                 <div>
                   <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-600/80">Balance</div>
-                  <div className="mt-0.5 font-display text-base font-bold tabular-nums text-pv-text">{weiToOkb(pundit.bal).toFixed(4)} <span className="text-xs text-pv-muted">OKB</span></div>
+                  <div className="mt-0.5 font-display text-base font-bold tabular-nums text-pv-text">{weiToOkb(punditBal).toFixed(4)} <span className="text-xs text-pv-muted">OKB</span></div>
                 </div>
                 <div>
                   <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-600/80">Picks</div>
@@ -373,7 +366,7 @@ export default async function AgentsPage() {
       <section>
         <div className="mb-4 flex items-baseline justify-between">
           <h2 className="font-display text-xl font-bold tracking-tight text-pv-text">Live agent feed</h2>
-          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-pv-muted">{agentEvents.length} agent events · {events.length} total</span>
+          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-pv-muted">{agentEvents.length} agent {agentEvents.length === 1 ? "event" : "events"}</span>
         </div>
         {agentEvents.length === 0 ? (
           <div className="rounded-2xl border border-pv-border/30 bg-pv-surface/70 p-8 text-center text-sm text-pv-muted">
@@ -382,10 +375,17 @@ export default async function AgentsPage() {
         ) : (
           <ul className="space-y-3">
             {agentEvents.map((e, i) => (
-              <li key={`${e.kind}-${e.claimId}-${e.txHash}-${i}`} className="rounded-2xl border border-pv-border/30 bg-pv-surface/70 p-4">
+              <li
+                key={`${e.kind}-${e.claimId}-${e.ts}-${i}`}
+                className="rounded-2xl border border-pv-border/30 bg-pv-surface/70 p-4"
+              >
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-pv-muted">block #{e.blockNumber}</span>
-                  <span className="font-mono text-[11px] text-pv-emerald">claim #{e.claimId}</span>
+                  <Link
+                    href={`/vs/${e.claimId}`}
+                    className="font-mono text-[11px] text-pv-emerald hover:text-pv-text"
+                  >
+                    claim #{e.claimId}
+                  </Link>
                   {e.kind === "created" && (
                     <>
                       <ActorTag addr={e.actor} oracle={agentInfo?.oracle} creator={agentInfo?.owner} pundit={pundit?.address} />
@@ -410,7 +410,11 @@ export default async function AgentsPage() {
                       </>
                     );
                   })()}
-                  <a href={getExplorerTxUrl(e.txHash)} target="_blank" rel="noreferrer" className="ml-auto font-mono text-[10px] text-pv-muted hover:text-pv-emerald">tx ↗</a>
+                  {e.ts > 0 && (
+                    <span className="ml-auto font-mono text-[10px] text-pv-muted">
+                      {new Date(e.ts).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  )}
                 </div>
                 {e.kind === "resolved" && e.summary && (
                   <p className="mt-2 text-[12px] leading-relaxed text-pv-text/75">{e.summary}</p>

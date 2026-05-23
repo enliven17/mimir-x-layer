@@ -620,6 +620,151 @@ export async function getRecentlyResolved(limit: number): Promise<ClaimRow[]> {
   });
 }
 
+// ── Agent activity (DB-backed, no RPC) ────────────────────────────────────────
+// /agents previously queried eth_getLogs in chunks of 100 blocks against the
+// public X Layer RPC. With a deploy block ~200k blocks behind tip that's
+// thousands of requests per page load — well above OKX's 5-req/sec limit.
+// These helpers serve the same UI from the Neon read-index instead.
+
+export interface AgentClaimRow {
+  id:                 number;
+  creator:            string;
+  category:           string;
+  state:              string;
+  winner_side:        string;
+  resolution_summary: string | null;
+  confidence:         number;
+  question:           string | null;
+  created_at:         number;
+  updated_at:         number;
+}
+
+function normalizeAgentClaimRow(row: Record<string, unknown>): AgentClaimRow {
+  return {
+    id:                 getNumber(row.id),
+    creator:            getString(row.creator),
+    category:           getString(row.category),
+    state:              getString(row.state),
+    winner_side:        getString(row.winner_side),
+    resolution_summary: getNullableString(row.resolution_summary),
+    confidence:         getNumber(row.confidence),
+    question:           getNullableString(row.question),
+    created_at:         getNumber(row.first_indexed_at),
+    updated_at:         getNumber(row.updated_at),
+  };
+}
+
+export interface AgentChallengerRow {
+  claim_id:   number;
+  address:    string;
+  stake:      number;
+  updated_at: number;
+}
+
+function normalizeAgentChallengerRow(row: Record<string, unknown>): AgentChallengerRow {
+  return {
+    claim_id:   getNumber(row.claim_id),
+    address:    getString(row.address),
+    stake:      getNumber(row.stake),
+    updated_at: getNumber(row.updated_at),
+  };
+}
+
+/** All claims created by `address` (case-insensitive), newest first. */
+export async function getClaimsCreatedBy(address: string, limit = 30): Promise<AgentClaimRow[]> {
+  const pool = await getDb();
+  const result = await execute(pool, {
+    sql: `SELECT id, creator, category, state, winner_side, resolution_summary,
+                 confidence, question, first_indexed_at, updated_at
+            FROM claims
+           WHERE LOWER(creator) = LOWER(?)
+           ORDER BY id DESC
+           LIMIT ?`,
+    args: [address, limit],
+  });
+  return result.rows.map((row) => normalizeAgentClaimRow(row as Record<string, unknown>));
+}
+
+/** All claims that ended in `resolved` state, newest first. Used for "oracle settled X" rows. */
+export async function getResolvedClaimsFeed(limit = 30): Promise<AgentClaimRow[]> {
+  const pool = await getDb();
+  const result = await execute(pool, {
+    sql: `SELECT id, creator, category, state, winner_side, resolution_summary,
+                 confidence, question, first_indexed_at, updated_at
+            FROM claims
+           WHERE state = 'resolved'
+           ORDER BY updated_at DESC, id DESC
+           LIMIT ?`,
+    args: [limit],
+  });
+  return result.rows.map((row) => normalizeAgentClaimRow(row as Record<string, unknown>));
+}
+
+/** All challenger entries by `address` (the agent staking), newest first. */
+export async function getChallengesBy(address: string, limit = 30): Promise<AgentChallengerRow[]> {
+  const pool = await getDb();
+  const result = await execute(pool, {
+    sql: `SELECT c.claim_id, c.address, c.stake, COALESCE(cl.updated_at, 0) AS updated_at
+            FROM challengers c
+            LEFT JOIN claims cl ON cl.id = c.claim_id
+           WHERE LOWER(c.address) = LOWER(?)
+           ORDER BY cl.updated_at DESC NULLS LAST, c.claim_id DESC
+           LIMIT ?`,
+    args: [address, limit],
+  });
+  return result.rows.map((row) => normalizeAgentChallengerRow(row as Record<string, unknown>));
+}
+
+/** Cheap counts for the agent profile cards. */
+export async function getAgentCounts(addresses: {
+  oracle?:  string;
+  creator?: string;
+  pundit?:  string;
+}): Promise<{
+  oracleSettlements: number;
+  oracleChallenges:  number;
+  creatorMarkets:    number;
+  punditMarkets:     number;
+  punditChallenges:  number;
+}> {
+  const pool = await getDb();
+  const lc = (s: string | undefined) => (s ?? "").toLowerCase();
+
+  const [resolved, oracleCh, creatorMk, punditMk, punditCh] = await Promise.all([
+    execute(pool, {
+      sql:  "SELECT COUNT(*)::int AS n FROM claims WHERE state = 'resolved'",
+      args: [],
+    }),
+    execute(pool, {
+      sql:  "SELECT COUNT(*)::int AS n FROM challengers WHERE LOWER(address) = ?",
+      args: [lc(addresses.oracle)],
+    }),
+    execute(pool, {
+      sql:  "SELECT COUNT(*)::int AS n FROM claims WHERE LOWER(creator) = ?",
+      args: [lc(addresses.creator)],
+    }),
+    execute(pool, {
+      sql:  "SELECT COUNT(*)::int AS n FROM claims WHERE LOWER(creator) = ?",
+      args: [lc(addresses.pundit)],
+    }),
+    execute(pool, {
+      sql:  "SELECT COUNT(*)::int AS n FROM challengers WHERE LOWER(address) = ?",
+      args: [lc(addresses.pundit)],
+    }),
+  ]);
+
+  const num = (r: { rows: Array<Record<string, unknown>> }) =>
+    getNumber((r.rows[0] ?? {} as Record<string, unknown>).n);
+
+  return {
+    oracleSettlements: num(resolved),
+    oracleChallenges:  num(oracleCh),
+    creatorMarkets:    num(creatorMk),
+    punditMarkets:     num(punditMk),
+    punditChallenges:  num(punditCh),
+  };
+}
+
 export async function getExpiringClaims(withinSeconds: number): Promise<ClaimRow[]> {
   const pool = await getDb();
   const nowSeconds = Math.floor(Date.now() / 1000);
