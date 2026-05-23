@@ -51,16 +51,19 @@ The contract enforces this internally — `createClaim` and `challengeClaim` bot
 
 ## Agents
 
-Two background workers run continuously. Both sign transactions locally using viem with a private key resolved from env (`ORACLE_PRIVATE_KEY`, `CREATOR_PRIVATE_KEY`) or from `wallets.local.json` in dev. Both pay OKB for gas and USDC for stakes.
+Three background workers run continuously. All three sign transactions locally using viem with a private key resolved from env (`ORACLE_PRIVATE_KEY`, `CREATOR_PRIVATE_KEY`, `PUNDIT_PRIVATE_KEY`) or from `wallets.local.json` in dev. All three pay OKB for gas and USDC for stakes.
 
 | Agent          | Cadence | Reads                    | Writes                              | LLM                    |
 | -------------- | ------- | ------------------------ | ----------------------------------- | ---------------------- |
 | oracle         | 60s     | Active claims past deadline | `resolveClaim`, optional `challengeClaim` (auto-challenge) | Gemini or Claude       |
 | market-creator | 6h      | World Cup 2026 fixtures, news feeds | `createClaim` with creator-side USDC stake | Gemini or Claude       |
+| pundit         | 2h      | Open sport claims on chain | `challengeClaim` (pre-event picks) + occasional `createClaim` | Gemini or Claude |
 
 The **oracle** is the settler — it reads evidence, asks the LLM for a verdict, and submits `resolveClaim`. With `AUTO_CHALLENGE=1` it also acts as a participant, Kelly-sizing counter-stakes on claims it believes are mispriced.
 
 The **market-creator** drafts FIFA World Cup 2026 prediction markets from public fixture and news data, scores each candidate, and opens the highest-scoring ones on-chain. Opening a claim costs USDC (the creator-side stake) plus OKB gas — curation is an economic commitment, not a free post.
+
+The **pundit** is a football commentator persona. Every couple of hours it scans open sport claims, runs an independent pre-event analysis (form, H2H, injuries) in a single batched LLM call, and stakes USDC on the side it disagrees with — writing a public "hot take" per pick into Postgres. Every `PUNDIT_CREATE_EVERY_HOURS` it also opens one of its own opinionated markets. Different prompt and persona from the oracle's auto-challenger: the pundit acts on sports knowledge, not on evidence-reading.
 
 ## Tech stack
 
@@ -158,7 +161,8 @@ All env vars live in `.env.example`. Key ones:
 | `npm run oracle`                 | Run only the oracle (settler)                               |
 | `npm run oracle:challenge`       | Oracle with `AUTO_CHALLENGE=1`                              |
 | `npm run market-creator`         | Run only the market-creator                                 |
-| `npm run workers`                | Run both agents in parallel (Railway entry point)           |
+| `npm run pundit`                 | Run only the pundit (sports-commentator agent)              |
+| `npm run workers`                | Run all three agents in parallel (Railway entry point)      |
 | `npm run seed` / `npm run seed:dry` | Seed demo claims (live / dry-run)                        |
 | `npm run warm:vs-index`          | Rebuild Neon read-index from on-chain state                 |
 | `npm run test:smoke`             | Node-native smoke tests                                      |

@@ -119,7 +119,16 @@ function WalletAccountMenu({
 }
 
 export default function Header() {
-  const { address, isConnected, isConnecting, connect, disconnect } = useWallet();
+  const {
+    address,
+    isConnected,
+    isConnecting,
+    connect,
+    disconnect,
+    isWrongNetwork,
+    switchNetwork,
+    isSwitching,
+  } = useWallet();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
@@ -194,6 +203,24 @@ export default function Header() {
 
   return (
     <header className="fixed left-0 right-0 top-0 z-50 pt-[env(safe-area-inset-top)]">
+      {isWrongNetwork && (
+        <div className="w-full border-b border-amber-400/40 bg-amber-400/[0.14] backdrop-blur-md">
+          <div className="mx-auto flex max-w-[1100px] flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-1.5 text-[12px] sm:px-6">
+            <span className="text-amber-800">
+              Your wallet is on the wrong network. Mimir runs on{" "}
+              <strong className="font-bold">X Layer Testnet (chain 1952)</strong>.
+            </span>
+            <button
+              type="button"
+              onClick={switchNetwork}
+              disabled={isSwitching}
+              className="rounded-md border border-amber-400/50 bg-amber-400/20 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-800 hover:bg-amber-400/30 disabled:opacity-60"
+            >
+              {isSwitching ? "Switching…" : "Switch network"}
+            </button>
+          </div>
+        </div>
+      )}
       <div
         className={`mx-auto flex h-14 max-w-[1100px] items-center justify-between px-4 transition-[background-color,border-color,box-shadow,transform,margin] duration-300 ease-out sm:px-6 ${
           scrolled
@@ -251,7 +278,17 @@ export default function Header() {
                 );
               })}
 
-              {isConnected && address ? (
+              {isConnected && address && isWrongNetwork ? (
+                <button
+                  type="button"
+                  onClick={switchNetwork}
+                  disabled={isSwitching}
+                  className="chip border-amber-400/40 bg-amber-400/[0.10] text-[12px] font-bold text-amber-700 hover:bg-amber-400/[0.18] focus-ring"
+                  title="Your wallet is on the wrong chain. Click to switch to X Layer Testnet (chain 1952)."
+                >
+                  {isSwitching ? "Switching…" : "Switch to X Layer"}
+                </button>
+              ) : isConnected && address ? (
                 <WalletAccountMenu
                   address={address}
                   open={walletMenuOpen}
@@ -274,7 +311,16 @@ export default function Header() {
 
             {/* Mobile */}
             <div className="flex items-center gap-2 md:hidden">
-              {isConnected && address ? (
+              {isConnected && address && isWrongNetwork ? (
+                <button
+                  type="button"
+                  onClick={switchNetwork}
+                  disabled={isSwitching}
+                  className="chip border-amber-400/40 bg-amber-400/[0.10] text-[11px] font-bold text-amber-700 hover:bg-amber-400/[0.18]"
+                >
+                  {isSwitching ? "…" : "Switch to X Layer"}
+                </button>
+              ) : isConnected && address ? (
                 <WalletAccountMenu
                   address={address}
                   open={walletMenuOpen}
@@ -315,7 +361,7 @@ export default function Header() {
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="overflow-hidden border-t border-black/[0.08] md:hidden"
+            className="mx-2 mt-1 overflow-hidden rounded-2xl border border-pv-border/40 bg-pv-surface/95 shadow-[0_22px_60px_-20px_rgba(216,95,95,0.22)] backdrop-blur-xl md:hidden"
           >
             <LayoutGroup id="mobile-header-nav">
               <nav

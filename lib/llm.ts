@@ -27,7 +27,7 @@ export interface CallLLMOptions {
   jsonOnly?: boolean;
 }
 
-const DEFAULT_GEMINI_MODEL    = process.env.ORACLE_LLM_MODEL || "gemini-2.5-flash";
+const DEFAULT_GEMINI_MODEL    = process.env.ORACLE_LLM_MODEL || "gemini-2.5-flash-lite";
 const DEFAULT_ANTHROPIC_MODEL = process.env.ORACLE_LLM_MODEL || "claude-sonnet-4-6";
 
 let anthropicClient: Anthropic | null = null;

@@ -10,6 +10,7 @@ import {
   getExplorerTxUrl,
 } from "@/lib/arc";
 import { MIMIR_ABI } from "@/lib/mimir-abi";
+import { countPunditPicks, getRecentPunditPicks, type PunditPickRow } from "@/lib/db";
 
 export const revalidate = 20;
 
@@ -124,6 +125,34 @@ async function fetchEvents() {
   }
 }
 
+async function fetchPunditData(): Promise<{
+  address:    string | null;
+  bal:        bigint;
+  picks:      PunditPickRow[];
+  counts:     { total: number; creates: number; challenges: number };
+} | null> {
+  const address = (process.env.PUNDIT_ADDRESS ?? "").trim().toLowerCase();
+  try {
+    const [picks, counts] = await Promise.all([
+      getRecentPunditPicks(3),
+      countPunditPicks(),
+    ]);
+    let bal = 0n;
+    if (address) {
+      try {
+        const client = createArcPublicClient();
+        bal = await client.getBalance({ address: address as `0x${string}` });
+      } catch {
+        bal = 0n;
+      }
+    }
+    return { address: address || null, bal, picks, counts };
+  } catch (err) {
+    console.error("[agents] fetchPunditData failed:", err);
+    return null;
+  }
+}
+
 async function fetchAgentAddresses() {
   const client  = createArcPublicClient();
   const address = getContractAddress();
@@ -161,13 +190,26 @@ const SIDE_LABEL: Record<number, string> = {
   4: "unresolvable · refunded",
 };
 
-function ActorTag({ addr, oracle, creator }: { addr: string; oracle?: string; creator?: string }) {
+function ActorTag({
+  addr,
+  oracle,
+  creator,
+  pundit,
+}: {
+  addr:    string;
+  oracle?: string;
+  creator?: string;
+  pundit?: string | null;
+}) {
   const norm = addr.toLowerCase();
   if (norm === oracle?.toLowerCase()) {
     return <span className="inline-flex items-center rounded-md border border-pv-emerald/40 bg-pv-emerald/[0.08] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-pv-emerald">oracle</span>;
   }
   if (norm === creator?.toLowerCase()) {
     return <span className="inline-flex items-center rounded-md border border-pv-border/60 bg-pv-surface2/60 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-pv-text/80">market-creator</span>;
+  }
+  if (pundit && norm === pundit.toLowerCase()) {
+    return <span className="inline-flex items-center rounded-md border border-amber-400/40 bg-amber-400/[0.10] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-amber-600">pundit</span>;
   }
   return <span className="font-mono text-[11px] text-pv-muted">{shortAddr(addr)}</span>;
 }
@@ -182,15 +224,20 @@ function tierPill(c: number) {
 /* ── Page ────────────────────────────────────────────────────────────────── */
 
 export default async function AgentsPage() {
-  const [events, agentInfo] = await Promise.all([fetchEvents(), fetchAgentAddresses()]);
+  const [events, agentInfo, pundit] = await Promise.all([
+    fetchEvents(),
+    fetchAgentAddresses(),
+    fetchPunditData(),
+  ]);
 
   // Agent-specific filters
   const isOracle    = (a: string) => agentInfo && a.toLowerCase() === agentInfo.oracle.toLowerCase();
   const isCreator   = (a: string) => agentInfo && a.toLowerCase() === agentInfo.owner.toLowerCase();
+  const isPundit    = (a: string) => pundit?.address && a.toLowerCase() === pundit.address.toLowerCase();
   const agentEvents = events.filter((e) =>
     e.kind === "resolved" ||
-    (e.kind === "challenged" && isOracle(e.actor)) ||
-    (e.kind === "created" && isCreator(e.actor)),
+    (e.kind === "challenged" && (isOracle(e.actor) || isPundit(e.actor))) ||
+    (e.kind === "created" && (isCreator(e.actor) || isPundit(e.actor))),
   );
 
   const oracleSettlements   = events.filter((e) => e.kind === "resolved").length;
@@ -219,7 +266,7 @@ export default async function AgentsPage() {
 
       {/* Agent profiles */}
       {agentInfo && (
-        <section className="mb-10 grid gap-4 lg:grid-cols-2">
+        <section className="mb-10 grid gap-4 lg:grid-cols-3">
           <article className="rounded-2xl border border-pv-emerald/35 bg-pv-emerald/[0.05] p-5">
             <div className="mb-1 flex items-center gap-2">
               <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-pv-emerald">Oracle agent</span>
@@ -267,6 +314,54 @@ export default async function AgentsPage() {
               </div>
             </div>
           </article>
+
+          {pundit && (
+            <article className="rounded-2xl border border-amber-400/40 bg-amber-400/[0.06] p-5">
+              <div className="mb-1 flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-amber-600">Pundit agent</span>
+                {pundit.address && (
+                  <a href={getExplorerAddressUrl(pundit.address as `0x${string}`)} target="_blank" rel="noreferrer" className="ml-auto font-mono text-[11px] text-pv-muted hover:text-amber-600">
+                    {shortAddr(pundit.address)} ↗
+                  </a>
+                )}
+              </div>
+              <p className="mt-1 text-sm text-pv-text/85">
+                A football commentator persona. Every {`${process.env.PUNDIT_INTERVAL_HOURS ?? "2"}h`} it scans open sport claims, runs an independent pre-event analysis (form, H2H, injuries), and stakes USDC on the side it disagrees with. Occasionally opens its own opinionated markets.
+              </p>
+              <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-600/80">Balance</div>
+                  <div className="mt-0.5 font-display text-base font-bold tabular-nums text-pv-text">{weiToOkb(pundit.bal).toFixed(4)} <span className="text-xs text-pv-muted">OKB</span></div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-600/80">Picks</div>
+                  <div className="mt-0.5 font-display text-base font-bold tabular-nums text-pv-text">{pundit.counts.challenges}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-600/80">Opened</div>
+                  <div className="mt-0.5 font-display text-base font-bold tabular-nums text-pv-text">{pundit.counts.creates}</div>
+                </div>
+              </div>
+              {pundit.picks.length > 0 && (
+                <div className="mt-4 border-t border-amber-400/20 pt-3">
+                  <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-600/80">🎙️ Latest hot takes</div>
+                  <ul className="space-y-2">
+                    {pundit.picks.map((p) => (
+                      <li key={p.id} className="text-[12px] leading-snug text-pv-text/85">
+                        <span className="font-mono text-[10px] text-amber-600/80">
+                          {p.action_type === "create" ? "opened" : `picked ${p.pick_side}`} · {p.confidence}%
+                          {p.claim_id > 0 && (
+                            <> · <Link href={`/vs/${p.claim_id}`} className="hover:text-amber-600">claim #{p.claim_id}</Link></>
+                          )}
+                        </span>
+                        <div className="mt-0.5">&ldquo;{p.hot_take}&rdquo;</div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </article>
+          )}
         </section>
       )}
 
@@ -278,7 +373,7 @@ export default async function AgentsPage() {
         </div>
         {agentEvents.length === 0 ? (
           <div className="rounded-2xl border border-pv-border/30 bg-pv-surface/70 p-8 text-center text-sm text-pv-muted">
-            No on-chain agent activity yet. Once the oracle settles or the market-creator opens a claim, events stream here.
+            No on-chain agent activity yet. Once the oracle settles, the market-creator opens a claim, or the pundit calls a pick, events stream here.
           </div>
         ) : (
           <ul className="space-y-3">
@@ -289,14 +384,14 @@ export default async function AgentsPage() {
                   <span className="font-mono text-[11px] text-pv-emerald">claim #{e.claimId}</span>
                   {e.kind === "created" && (
                     <>
-                      <ActorTag addr={e.actor} oracle={agentInfo?.oracle} creator={agentInfo?.owner} />
+                      <ActorTag addr={e.actor} oracle={agentInfo?.oracle} creator={agentInfo?.owner} pundit={pundit?.address} />
                       <span className="text-[13px] font-bold text-pv-text">opened a market</span>
                       <span className="text-[11px] text-pv-muted">· {e.category}</span>
                     </>
                   )}
                   {e.kind === "challenged" && (
                     <>
-                      <ActorTag addr={e.actor} oracle={agentInfo?.oracle} creator={agentInfo?.owner} />
+                      <ActorTag addr={e.actor} oracle={agentInfo?.oracle} creator={agentInfo?.owner} pundit={pundit?.address} />
                       <span className="text-[13px] font-bold text-pv-text">staked the contrarian side</span>
                       <span className="text-[11px] font-mono text-pv-text/85">{microToUsdc(e.stakeWei).toFixed(2)} USDC</span>
                     </>

@@ -188,6 +188,21 @@ const SCHEMA_STATEMENTS: SqlStatement[] = [
   { sql: "CREATE INDEX IF NOT EXISTS idx_challenge_opportunities_locale ON challenge_opportunities(locale)" },
   { sql: "CREATE INDEX IF NOT EXISTS idx_challenge_opportunities_expires_at ON challenge_opportunities(expires_at)" },
   { sql: "CREATE INDEX IF NOT EXISTS idx_challenge_opportunities_action ON challenge_opportunities(action)" },
+  { sql: `CREATE TABLE IF NOT EXISTS pundit_picks (
+    id BIGSERIAL PRIMARY KEY,
+    claim_id BIGINT NOT NULL DEFAULT 0,
+    action_type TEXT NOT NULL CHECK (action_type IN ('create','challenge')),
+    pick_side TEXT NOT NULL CHECK (pick_side IN ('creator','counter')),
+    confidence INTEGER NOT NULL DEFAULT 0,
+    hot_take TEXT NOT NULL,
+    reasoning TEXT NOT NULL DEFAULT '',
+    stake_micro_usdc BIGINT NOT NULL DEFAULT 0,
+    tx_hash TEXT NOT NULL DEFAULT '',
+    created_at BIGINT NOT NULL DEFAULT 0
+  )` },
+  { sql: "CREATE INDEX IF NOT EXISTS idx_pundit_picks_claim ON pundit_picks(claim_id)" },
+  { sql: "CREATE INDEX IF NOT EXISTS idx_pundit_picks_created ON pundit_picks(created_at DESC)" },
+  { sql: "CREATE INDEX IF NOT EXISTS idx_pundit_picks_action ON pundit_picks(action_type)" },
   {
     sql: "INSERT INTO sync_meta(key, value) VALUES($1, $2) ON CONFLICT(key) DO NOTHING",
     args: ["last_claim_count", "0"],
@@ -796,6 +811,124 @@ export async function pruneExpiredChallengeOpportunities(nowMs = Date.now()): Pr
     sql:  "DELETE FROM challenge_opportunities WHERE expires_at <= ?",
     args: [nowMs],
   });
+}
+
+// ── Pundit picks ──────────────────────────────────────────────────────────────
+// The sports-commentator agent (`agents/pundit`) writes one row per on-chain
+// action it takes (create or challenge). Used by `/agents` to render the
+// pundit card with its three most recent hot takes.
+
+export interface PunditPickRow {
+  id:               number;
+  claim_id:         number;
+  action_type:      "create" | "challenge";
+  pick_side:        "creator" | "counter";
+  confidence:       number;
+  hot_take:         string;
+  reasoning:        string;
+  stake_micro_usdc: number;
+  tx_hash:          string;
+  created_at:       number;
+}
+
+function normalizePunditPickRow(row: Record<string, unknown>): PunditPickRow {
+  const action = getString(row.action_type);
+  const side = getString(row.pick_side);
+  return {
+    id:               getNumber(row.id),
+    claim_id:         getNumber(row.claim_id),
+    action_type:      action === "create" ? "create" : "challenge",
+    pick_side:        side === "creator" ? "creator" : "counter",
+    confidence:       getNumber(row.confidence),
+    hot_take:         getString(row.hot_take),
+    reasoning:        getString(row.reasoning),
+    stake_micro_usdc: getNumber(row.stake_micro_usdc),
+    tx_hash:          getString(row.tx_hash),
+    created_at:       getNumber(row.created_at),
+  };
+}
+
+export async function insertPunditPick(pick: {
+  claimId:        number;
+  actionType:     "create" | "challenge";
+  pickSide:       "creator" | "counter";
+  confidence:     number;
+  hotTake:        string;
+  reasoning:      string;
+  stakeMicroUsdc: bigint;
+  txHash:         string;
+}): Promise<void> {
+  const pool = await getDb();
+  await execute(pool, {
+    sql: `INSERT INTO pundit_picks (
+      claim_id, action_type, pick_side, confidence, hot_take, reasoning,
+      stake_micro_usdc, tx_hash, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      pick.claimId,
+      pick.actionType,
+      pick.pickSide,
+      pick.confidence,
+      pick.hotTake,
+      pick.reasoning,
+      Number(pick.stakeMicroUsdc),
+      pick.txHash,
+      Date.now(),
+    ],
+  });
+}
+
+/** Returns claim_ids the pundit has already acted on (used as an idempotency filter). */
+export async function getPunditCoveredClaimIds(): Promise<Set<number>> {
+  const pool = await getDb();
+  const result = await execute(pool, {
+    sql:  "SELECT DISTINCT claim_id FROM pundit_picks WHERE claim_id > 0",
+    args: [],
+  });
+  return new Set(
+    result.rows.map((row) => getNumber((row as Record<string, unknown>).claim_id)),
+  );
+}
+
+export async function getRecentPunditPicks(limit = 5): Promise<PunditPickRow[]> {
+  const pool = await getDb();
+  const result = await execute(pool, {
+    sql:  "SELECT * FROM pundit_picks ORDER BY created_at DESC, id DESC LIMIT ?",
+    args: [limit],
+  });
+  return result.rows.map((row) => normalizePunditPickRow(row as Record<string, unknown>));
+}
+
+export async function countPunditPicks(): Promise<{ total: number; creates: number; challenges: number }> {
+  const pool = await getDb();
+  const result = await execute(pool, {
+    sql:  `SELECT
+             COUNT(*)::int AS total,
+             COUNT(*) FILTER (WHERE action_type = 'create')::int AS creates,
+             COUNT(*) FILTER (WHERE action_type = 'challenge')::int AS challenges
+           FROM pundit_picks`,
+    args: [],
+  });
+  const row = (result.rows[0] ?? {}) as Record<string, unknown>;
+  return {
+    total:      getNumber(row.total),
+    creates:    getNumber(row.creates),
+    challenges: getNumber(row.challenges),
+  };
+}
+
+/**
+ * Was the last creation-pass long enough ago to do another?
+ * Returns the timestamp of the most recent action_type='create' pick, or 0.
+ */
+export async function getLastPunditCreateMs(): Promise<number> {
+  const pool = await getDb();
+  const result = await execute(pool, {
+    sql:  "SELECT MAX(created_at)::bigint AS last FROM pundit_picks WHERE action_type = 'create'",
+    args: [],
+  });
+  const row = (result.rows[0] ?? {}) as Record<string, unknown>;
+  return getNumber(row.last);
 }
 
 export async function getActiveChallengeOpportunities(args?: {

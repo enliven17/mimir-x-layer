@@ -45,6 +45,7 @@ import {
 // meaning — they're just lookup keys into our local private-key store.
 export const ORACLE_WALLET_ID = "oracle";
 export const CREATOR_WALLET_ID = "creator";
+export const PUNDIT_WALLET_ID = "pundit";
 
 // ── Private-key resolution ────────────────────────────────────────────────────
 // Resolution order (first hit wins):
@@ -52,7 +53,11 @@ export const CREATOR_WALLET_ID = "creator";
 //   2. wallets.local.json at the repo root (dev convenience, git-ignored)
 
 let cachedLocalWallets:
-  | { oracle?: { privateKey: string }; marketCreator?: { privateKey: string } }
+  | {
+      oracle?:        { privateKey: string };
+      marketCreator?: { privateKey: string };
+      pundit?:        { privateKey: string };
+    }
   | null = null;
 let triedLocalWallets = false;
 
@@ -91,6 +96,16 @@ function getPrivateKey(walletId: string): Hex {
         "or generate one with `npx tsx scripts/generate-wallets.ts`.",
     );
   }
+  if (walletId === PUNDIT_WALLET_ID) {
+    const fromEnv = process.env.PUNDIT_PRIVATE_KEY?.trim();
+    if (fromEnv) return fromEnv as Hex;
+    const local = loadLocalWallets();
+    if (local?.pundit?.privateKey) return local.pundit.privateKey as Hex;
+    throw new Error(
+      "Pundit private key missing. Set PUNDIT_PRIVATE_KEY in .env.local " +
+        "or generate one with `npx tsx scripts/generate-wallets.ts`.",
+    );
+  }
   throw new Error(`Unknown walletId: ${walletId}`);
 }
 
@@ -117,6 +132,16 @@ export function getMarketCreatorAddress(): `0x${string}` {
   const fromEnv = process.env.CREATOR_ADDRESS?.trim();
   if (fromEnv) return fromEnv as `0x${string}`;
   return deriveAddress(CREATOR_WALLET_ID);
+}
+
+export function getPunditWalletId(): string {
+  return PUNDIT_WALLET_ID;
+}
+
+export function getPunditAddress(): `0x${string}` {
+  const fromEnv = process.env.PUNDIT_ADDRESS?.trim();
+  if (fromEnv) return fromEnv as `0x${string}`;
+  return deriveAddress(PUNDIT_WALLET_ID);
 }
 
 // ── ABI helpers (kept identical to the Circle-era helpers) ────────────────────
