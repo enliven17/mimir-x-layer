@@ -11,7 +11,9 @@ import {
 } from "@/lib/arc";
 import { MIMIR_ABI } from "@/lib/mimir-abi";
 
-export const revalidate = 30;
+// See agents/page.tsx — paginatedGetLogs at build-time hammers the public
+// X Layer RPC and triggers 429s during static generation. Render on demand.
+export const dynamic = "force-dynamic";
 
 // ── Data ─────────────────────────────────────────────────────────────────────
 

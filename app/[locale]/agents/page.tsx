@@ -12,7 +12,11 @@ import {
 import { MIMIR_ABI } from "@/lib/mimir-abi";
 import { countPunditPicks, getRecentPunditPicks, type PunditPickRow } from "@/lib/db";
 
-export const revalidate = 20;
+// Rendered on each request (no build-time prerender). The page reads several
+// log ranges from X Layer's public RPC; doing that during Vercel's static
+// generation reliably hits the RPC's 429 rate limit. Runtime-only avoids
+// that — and Vercel's edge cache + the browser still keep it cheap.
+export const dynamic = "force-dynamic";
 
 /* ── Data ────────────────────────────────────────────────────────────────── */
 
