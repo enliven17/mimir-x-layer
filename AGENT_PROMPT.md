@@ -48,7 +48,8 @@ mimir-x-layer/
 │       └── messages/                 XMTP messages hub
 ├── agents/
 │   ├── oracle/index.ts               Settler + auto-challenger
-│   └── market-creator/index.ts       FIFA World Cup 2026 market drafter
+│   ├── market-creator/index.ts       FIFA World Cup 2026 market drafter
+│   └── pundit/index.ts               Sports commentator: hot takes + counter-picks
 ├── contracts/Mimir.sol               The only contract
 ├── lib/
 │   ├── xlayer.ts                     Chain config (chainId 1952)
@@ -80,6 +81,7 @@ Server-only:
 - `DEPLOYER_PRIVATE_KEY` — deploy script only
 - `ORACLE_PRIVATE_KEY`, `ORACLE_ADDRESS`
 - `CREATOR_PRIVATE_KEY`, `CREATOR_ADDRESS`
+- `PUNDIT_PRIVATE_KEY`, `PUNDIT_ADDRESS`
 - `GEMINI_API_KEY` or `ANTHROPIC_API_KEY`, optional `LLM_PROVIDER`
 - `DATABASE_URL` (Neon, optional)
 
@@ -93,7 +95,8 @@ npm run contract:compile   # solc 0.8.28 viaIR
 npm run deploy:contract    # deploy to X Layer Testnet
 npm run oracle             # AI oracle agent
 npm run market-creator     # market-creator agent
-npm run workers            # both agents (Railway entry point)
+npm run pundit             # pundit agent
+npm run workers            # all three agents (Railway entry point)
 npm run test:smoke         # smoke tests
 ```
 
@@ -156,6 +159,12 @@ Signs every tx with viem using `ORACLE_PRIVATE_KEY`. Pays OKB for gas, USDC for 
 ## Market-creator agent (`agents/market-creator/index.ts`)
 
 Runs every 6 hours. Pulls FIFA World Cup 2026 fixtures, group standings, and news, asks the LLM to draft 1–5 verifiable claim candidates (each with a `resolutionUrl` pointing to fifa.com / ESPN / API-Sports), scores them, and opens the top ones. Each `createClaim` is preceded by `usdc.approve(Mimir, stake)`. Quality floor 70/100, cap 5 markets per run by default.
+
+## Pundit agent (`agents/pundit/index.ts`)
+
+Football-commentator persona. Every `PUNDIT_INTERVAL_HOURS` (default 2) scans open sport claims, runs an independent pre-event analysis (form, H2H, injuries) via a single batched LLM call, and counter-stakes the side it disagrees with — writing a public "hot take" per pick into the `pundit_picks` Postgres table. Every `PUNDIT_CREATE_EVERY_HOURS` (default 8) also opens one of its own opinionated markets.
+
+Distinct from the oracle's `AUTO_CHALLENGE` mode: the pundit acts on **sports knowledge**, not evidence-reading. Different prompt, different persona, different bankroll. Requires `PUNDIT_PRIVATE_KEY`, `DATABASE_URL` (Neon), and an LLM key. Tunables: `PUNDIT_STAKE_USDC` (default 2), `PUNDIT_CONFIDENCE` (default 75), `PUNDIT_MAX_PICKS_PER_RUN` (default 3).
 
 ## Working rules
 

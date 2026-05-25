@@ -119,6 +119,32 @@ async function main(): Promise<void> {
   if (claimId === 0) throw new Error("ClaimCreated event not found in receipt");
   console.log(`     claim id  : #${claimId}`);
 
+  // X Layer testnet RPC is load-balanced across replicas — the gas-estimator
+  // for the next tx may land on a node that hasn't synced our create tx yet,
+  // causing the challenge call to revert with "claim not found". Poll the
+  // read endpoint until the claim is visible to defeat the lag.
+  process.stdout.write("     waiting for RPC propagation…");
+  let visible = false;
+  for (let i = 0; i < 15; i++) {
+    try {
+      const probe = (await client.readContract({
+        address: contractAddress,
+        abi: MIMIR_ABI,
+        functionName: "getClaim",
+        args: [BigInt(claimId)],
+      })) as readonly any[];
+      const creator = probe[0] as string;
+      if (creator && creator !== "0x0000000000000000000000000000000000000000") {
+        visible = true;
+        break;
+      }
+    } catch { /* swallow */ }
+    process.stdout.write(".");
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  if (!visible) throw new Error(`Claim #${claimId} not visible after 30s — RPC replica lag persists`);
+  process.stdout.write(" ✓\n");
+
   // 2. CHALLENGE
   console.log(`\n[2/4] Oracle challenges (stakes ${STAKE_USDC} USDC on Side B)…`);
   const approveChallenge = await ensureUsdcAllowance(oracleWallet, contractAddress, stakeWei);

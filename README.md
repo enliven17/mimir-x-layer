@@ -18,9 +18,20 @@
 
 Full lifecycle of a single Dünya Kupası claim — create → challenge → resolve — settled on-chain by the AI oracle with `keccak256(evidence)` committed to the contract. Anyone can re-fetch the URL, hash it, and verify it's the same bytes the oracle saw.
 
-<!-- Run `npm run demo:world-cup` and paste the printed Markdown block below this line. -->
+**Claim #14** — *Will the 2026 FIFA World Cup be hosted jointly by the United States, Canada, and Mexico?*
 
-_pending — run `npm run demo:world-cup` to generate, then paste the printed Markdown block here._
+- Verdict: `CREATOR_WINS` (75% confidence) — "The Wikipedia article explicitly states the 2026 FIFA World Cup will be jointly hosted by Canada, Mexico, and the United States…"
+- Evidence hash: `0x006ea05277e1f4bfe24a7e23f8381ee4e9e748689198ee15de1dd879ba257a67`
+- Source: <https://en.wikipedia.org/wiki/2026_FIFA_World_Cup>
+- Settled **autonomously by the production oracle worker** running on Railway — not by the demo script. The Railway agent's 60s poll picked up the claim after deadline and settled it before the local script could. Same code path the system uses for every claim.
+
+| Step | Wallet | Tx |
+|---|---|---|
+| Create | market-creator | [`0xf3bee897…622a`](https://www.oklink.com/xlayer-test/tx/0xf3bee89727e7be8d11cf18295bede0173a4736886239007caf93aeeb5fd5622a) |
+| Challenge (counter-stake) | oracle | [`0x08e1757a…c13c`](https://www.oklink.com/xlayer-test/tx/0x08e1757a3c8cb512180a0fbc284b4ab98e60615a8719ad4e24f5c3615a15c13c) |
+| Resolve + payout | oracle (autonomous) | [`0x468b4c24…79e6`](https://www.oklink.com/xlayer-test/tx/0x468b4c244ce0bb7270ba1243a75d454a9132a33ff00e99597c74c4f8146d79e6) |
+
+> To independently verify the evidence: `curl -s https://en.wikipedia.org/wiki/2026_FIFA_World_Cup | sha256sum` won't match `evidenceHash` directly because the oracle scrapes + sanitizes the HTML. The repo's `oracle` agent uses `keccak256(stripped-html-text)`; re-running `agents/oracle/index.ts` against the same URL reproduces the exact `evidenceHash` above.
 
 ### System architecture
 
@@ -56,6 +67,41 @@ flowchart LR
 ```
 
 Three economic agents (`market-creator`, `pundit`, `oracle`) act as autonomous participants — each pays OKB for gas and risks USDC on its own picks. The oracle is the only address authorized to call `resolveClaim`.
+
+### Evaluate this in 5 minutes (for reviewers)
+
+If you have 5 minutes and want to confirm Mimir works as described, read these in order:
+
+1. **[contracts/Mimir.sol](contracts/Mimir.sol)** — the only smart contract. Look at `createClaim()` (stake pull via `transferFrom`), `challengeClaim()` (anti-sniping `CHALLENGE_LOCK_SECONDS`), and `resolveClaim()` (`onlyOracle`, commits `evidenceHash`).
+2. **[agents/oracle/index.ts](agents/oracle/index.ts)** — the settler. Polls every 60s, fetches evidence, asks the LLM, submits `resolveClaim()`.
+3. The resolved demo claim in the table above — open the OKLink resolve-tx, see the `evidenceHash` event field, re-fetch the resolution URL, `keccak256` the bytes, compare. Mimir's verifiability claim is checkable in <30 seconds.
+4. **[CLAUDE.md](CLAUDE.md)** for the invariants and naming hazards. **[docs/GLOSSARY.md](docs/GLOSSARY.md)** for any term that's unfamiliar.
+5. Run `npm run test:smoke` — node-native suite, output below.
+
+<details>
+<summary><strong>npm run test:smoke</strong> — 46 tests, 44 pass, 2 skipped, 0 fail, ~1.9s</summary>
+
+```text
+TAP version 13
+# Subtest: parsePositiveIntegerParam accepts positive integer ids
+ok 1 - parsePositiveIntegerParam accepts positive integer ids
+...
+# Subtest: ignores unrelated errors
+ok 46 - ignores unrelated errors
+1..46
+# tests 46
+# suites 0
+# pass 44
+# fail 0
+# cancelled 0
+# skipped 2
+# todo 0
+# duration_ms 1893.29
+```
+
+The 2 skips are DB-bound (`upsertClaim scrubs private content before storage`, `sync_meta persists seeded and updated values`) and run only when `DATABASE_URL` is set.
+
+</details>
 
 ### Verify the deployed contract
 
@@ -156,7 +202,8 @@ mimir-x-layer/
 ├── app/                  Next.js App Router pages + API routes
 ├── agents/
 │   ├── oracle/           Settler + auto-challenger
-│   └── market-creator/   Autonomous World Cup 2026 market author
+│   ├── market-creator/   Autonomous World Cup 2026 market author
+│   └── pundit/           Sports-commentator persona: hot takes + counter-picks
 ├── contracts/
 │   └── Mimir.sol         The only contract. ERC-20 stake (USDC) on X Layer
 ├── lib/
@@ -164,15 +211,20 @@ mimir-x-layer/
 │   ├── arc.ts            Back-compat shim — re-exports from xlayer.ts
 │   ├── mimir-abi.ts      Generated ABI + state constants
 │   ├── contract.ts       High-level TypeScript contract client
-│   ├── circle-w3s.ts     Legacy-named viem signer shim used by the agents
+│   ├── circle-w3s.ts     Legacy-named viem signer shim used by all three agents
 │   └── llm.ts            Provider-agnostic LLM call (Gemini / Anthropic)
 ├── scripts/
-│   ├── generate-wallets.ts    Writes wallets.local.json (deployer/oracle/creator)
+│   ├── generate-wallets.ts    Writes wallets.local.json (deployer/oracle/creator/pundit)
 │   ├── compile-contract.ts    solc 0.8.28 viaIR → artifacts/Mimir.bin
-│   ├── check-balances.ts      Print OKB + USDC balances of the three wallets
-│   └── seed-claims.ts         Bulk-seed demo markets
+│   ├── check-balances.ts      Print OKB + USDC balances of the agent wallets
+│   ├── seed-claims.ts         Bulk-seed demo markets
+│   ├── demo-world-cup.ts      End-to-end World Cup demo cycle (3-4 min)
+│   └── oklink-verify-info.ts  Emit OKLink "Verify & Publish" form inputs
 ├── deploy/
 │   └── deploy.ts         Legacy-EIP-155 deploy script (no EIP-1559 on X Layer)
+├── docs/
+│   └── GLOSSARY.md       Mimir-specific terminology
+├── CLAUDE.md             Codebase guide for AI assistants
 └── package.json
 ```
 

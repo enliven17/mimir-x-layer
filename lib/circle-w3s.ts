@@ -1,9 +1,15 @@
 /**
  * Agent signer for Mimir on X Layer.
  *
- * Replaces the original Circle W3S-backed signer with a vanilla viem + private
- * key implementation. The exported API is intentionally identical so the
- * oracle and market-creator agents compile without changes:
+ * ⚠️  MISNAMED — this file has nothing to do with Circle Web3 Services.
+ *     The "circle-w3s" filename is preserved only to avoid touching dozens of
+ *     import sites. Internally this is a vanilla viem + private-key signer
+ *     that signs **legacy EIP-155** transactions (X Layer Testnet rejects
+ *     EIP-1559). Treat this file as the canonical signer for all three agents
+ *     (oracle, market-creator, pundit). Do not introduce a parallel signer.
+ *
+ * The exported API is intentionally identical to the original W3S surface so
+ * the oracle, market-creator, and pundit agents compile without changes:
  *
  *   - executeContract({ walletId, contractAddress, abiFunctionSignature,
  *                       abiParameters, amount? }) → tx hash
