@@ -2,6 +2,73 @@
 
 **AI-settled prediction market on X Layer Testnet with USDC stakes.**
 
+> Built for the **X Cup Hackathon** — Dünya Kupası temalı tahmin piyasası, X Layer üzerinde tamamen otonom çalışan üç AI agent ile.
+
+## Live demo
+
+| | |
+|---|---|
+| 🌐 App | _add production URL here_ |
+| 📺 Demo video (1–3 min) | _add video link here_ |
+| 🐦 Twitter | [@Mimir_Markets](https://x.com/Mimir_Markets) — tags `@XLayerOfficial` per hackathon rules |
+| 🔗 Contract | [`0x0924af6f439ff8da91d209733ed16b8ad7c8ce53`](https://www.oklink.com/xlayer-test/address/0x0924af6f439ff8da91d209733ed16b8ad7c8ce53) on X Layer Testnet (chain id `1952`) |
+| 💵 Stake token | [`USDC_TEST`](https://www.oklink.com/xlayer-test/address/0xcB8BF24c6cE16Ad21D707c9505421a17f2bec79D) (6 decimals) — gas paid in OKB |
+
+### Live proof on X Layer
+
+Full lifecycle of a single Dünya Kupası claim — create → challenge → resolve — settled on-chain by the AI oracle with `keccak256(evidence)` committed to the contract. Anyone can re-fetch the URL, hash it, and verify it's the same bytes the oracle saw.
+
+<!-- Run `npm run demo:world-cup` and paste the printed Markdown block below this line. -->
+
+_pending — run `npm run demo:world-cup` to generate, then paste the printed Markdown block here._
+
+### System architecture
+
+```mermaid
+flowchart LR
+    User([User Wallet]):::user -->|sign tx| FE[Next.js on Vercel]
+    FE -->|read state| RPC[/X Layer RPC/]
+    FE -->|read-index| Neon[(Neon Postgres)]
+    FE <-->|E2E chat| XMTP[XMTP Network]
+
+    subgraph Workers[Workers on Railway]
+        direction TB
+        Creator[market-creator agent]
+        Pundit[pundit agent]
+        Oracle[oracle agent]
+    end
+
+    Creator -->|createClaim + USDC stake| Mimir
+    Pundit  -->|challengeClaim + hot take| Mimir
+    Oracle  -->|resolveClaim + evidenceHash| Mimir
+
+    Creator -.->|fixtures + news| LLM[(LLM: Gemini / Claude)]
+    Pundit  -.->|sports analysis| LLM
+    Oracle  -.->|evidence + verdict| LLM
+
+    subgraph XLayer[X Layer L2 · chainId 1952]
+        Mimir[Mimir.sol]
+        USDC[USDC_TEST ERC-20]
+        Mimir <-->|transferFrom / transfer| USDC
+    end
+
+    classDef user fill:#fef3c7,stroke:#b45309
+```
+
+Three economic agents (`market-creator`, `pundit`, `oracle`) act as autonomous participants — each pays OKB for gas and risks USDC on its own picks. The oracle is the only address authorized to call `resolveClaim`.
+
+### Verify the deployed contract
+
+`Mimir.sol` source on this repo matches the deployed bytecode at the address above. To independently verify on OKLink:
+
+```bash
+npm run verify:info
+```
+
+The script reads constructor args live from chain (`oracle()`, `stakeToken()`) and prints the exact compiler settings (solc 0.8.28, optimizer runs 200, **viaIR enabled**) plus the ABI-encoded constructor blob to paste into the OKLink "Verify & Publish" form.
+
+---
+
 Mimir is a peer-to-peer market for verifiable claims about future outcomes. Two parties stake USDC on opposite sides of a question; when the deadline passes, an off-chain AI oracle reads the agreed evidence source, decides a verdict, and settles the payout on-chain. No judges, no committees, no manual disputes.
 
 ## What it does
@@ -188,6 +255,8 @@ Explorer: https://www.oklink.com/xlayer-test
 Faucet:   https://www.okx.com/xlayer/faucet
 RPC:      https://xlayertestrpc.okx.com  (also https://testrpc.xlayer.tech)
 ```
+
+**Verify on OKLink** — run `npx tsx scripts/oklink-verify-info.ts` for the compiler settings and ABI-encoded constructor args, then submit at <https://www.oklink.com/xlayer-test/address/0x0924af6f439ff8da91d209733ed16b8ad7c8ce53/contract>.
 
 ## License
 

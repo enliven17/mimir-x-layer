@@ -19,6 +19,8 @@
     "workers": "concurrently --names oracle,creator,pundit --kill-others-on-fail -c blue,magenta,yellow \"npm:oracle\" \"npm:market-creator\" \"npm:pundit\"",
     "seed": "npx tsx scripts/seed-claims.ts",
     "seed:dry": "DRY_RUN=1 npx tsx scripts/seed-claims.ts",
+    "demo:world-cup": "tsx --env-file-if-exists=.env.local scripts/demo-world-cup.ts",
+    "verify:info": "tsx --env-file-if-exists=.env.local scripts/oklink-verify-info.ts",
     "wallets:generate": "npx tsx scripts/generate-wallets.ts",
     "contract:compile": "npx tsx scripts/compile-contract.ts",
     "deploy:contract": "npx tsx deploy/deploy.ts",
